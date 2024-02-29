@@ -26,6 +26,7 @@ properties([
 
 pipeline {
   agent { label 'built-in' }
+  options { timestamps () }
   environment {
     // https://stackoverflow.com/questions/46680573
     REPO = params.getOrDefault('REPO', DEF_GHAF_REPO)
