@@ -38,9 +38,7 @@ pipeline {
     stage('Configure target repo') {
       steps {
         script {
-          SCM = git(url: REPO, branch: 'main')
-          echo 'Print target SCM'
-          echo SCM.toString()
+          SCM = git(url: DEF_GHAF_REPO, branch: DEF_GITREF)
         }
       }
     }
