@@ -77,6 +77,16 @@ pipeline {
             }
           }
         }
+        stage('Build on aarch64') {
+          steps {
+            dir('ghaf') {
+              sh 'nix build -L .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug -o result-aarch64-jetson-orin-agx-debug'
+              sh 'nix build -L .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug  -o result-aarch64-jetson-orin-nx-debug'
+              sh 'nix build -L .#packages.aarch64-linux.imx8qm-mek-debug             -o result-aarch64-imx8qm-mek-debug'
+              sh 'nix build -L .#packages.aarch64-linux.doc                          -o result-aarch64-doc'
+            }
+          }
+        }
       }
     }
   }
