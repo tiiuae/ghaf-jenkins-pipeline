@@ -26,7 +26,15 @@ properties([
 
 pipeline {
   agent { label 'built-in' }
-  options { timestamps () }
+  options {
+    timestamps ()
+    buildDiscarder logRotator(
+      artifactDaysToKeepStr: '7',
+      artifactNumToKeepStr: '10',
+      daysToKeepStr: '70',
+      numToKeepStr: '100'
+    )
+  }
   environment {
     // https://stackoverflow.com/questions/46680573
     REPO = params.getOrDefault('REPO', DEF_GHAF_REPO)
@@ -78,6 +86,11 @@ pipeline {
           }
         }
       }
+    }
+  }
+  post {
+    always {
+      archiveArtifacts allowEmptyArchive: true, artifacts: 'ghaf/result-*/**'
     }
   }
 }
