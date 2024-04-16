@@ -11,6 +11,7 @@ pipeline {
     string name: 'BRANCH', defaultValue: 'main'
   }
   options {
+    disableConcurrentBuilds()
     buildDiscarder logRotator(
       artifactDaysToKeepStr: '7',
       artifactNumToKeepStr: '10',
@@ -20,11 +21,10 @@ pipeline {
   }
   stages {
     stage('Checkout') {
+      agent any
       steps {
-        script {
-          git branch: params.BRANCH, url: params.URL
-          sh 'git clean -fdx .'
-        }
+        git branch: params.BRANCH, url: params.URL
+        sh 'git clean -fdx .'
       }
     }
     stage('Test targets') {
@@ -46,34 +46,36 @@ pipeline {
         }
         stages {
           stage('Build') {
+            agent any
             steps {
-              sh 'nix build -L .#packages.${TARGET} -o result-$TARGET'
+              sh 'nix build -L .#packages.${TARGET} -o result-${TARGET}'
+              archiveArtifacts allowEmptyArchive: true,
+                artifacts: "result-${TARGET}/**"
             }
           }
           stage('Generate SBOM') {
+            agent any
             steps {
+              sh 'mkdir -p result-sbom-${TARGET}'
               sh '''
-                mkdir -p result-sbom-${TARGET}
                 nix run github:tiiuae/sbomnix#sbomnix -- \
                 --csv result-sbom-${TARGET}/sbom.csv \
                 --cdx result-sbom-${TARGET}/sbom.cdx.json \
                 --spdx result-sbom-${TARGET}/sbom.spdx.json \
                 .#packages.${TARGET}
               '''
+              archiveArtifacts allowEmptyArchive: true,
+                artifacts: "result-sbom-${TARGET}/**"
             }
           }
           stage('Another test') {
+            agent any
             steps {
               sh 'echo Under Construction'
             }
           }
         }
       }
-    }
-  }
-  post {
-    always {
-      archiveArtifacts allowEmptyArchive: true, artifacts: 'result-*/**'
     }
   }
 }
