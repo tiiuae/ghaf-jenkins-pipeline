@@ -23,8 +23,12 @@ pipeline {
     stage('Checkout') {
       agent any
       steps {
-        git branch: params.BRANCH, url: params.URL
-        sh 'git clean -fdx .'
+        ws('ghaf') {
+          checkout scmGit(
+            branches: [[name: params.BRANCH]],
+            extensions: [cleanBeforeCheckout()],
+            userRemoteConfigs: [[url: params.URL]])
+        }
       }
     }
     stage('Test targets') {
@@ -48,24 +52,28 @@ pipeline {
           stage('Build') {
             agent any
             steps {
-              sh 'nix build -L .#packages.${TARGET} -o result-${TARGET}'
-              archiveArtifacts allowEmptyArchive: true,
-                artifacts: "result-${TARGET}/**"
+              ws('ghaf') {
+                sh 'nix build -L .#packages.${TARGET} -o result-${TARGET}'
+                archiveArtifacts allowEmptyArchive: true,
+                  artifacts: "result-${TARGET}/**"
+              }
             }
           }
           stage('Generate SBOM') {
             agent any
             steps {
-              sh 'mkdir -p result-sbom-${TARGET}'
-              sh '''
-                nix run github:tiiuae/sbomnix#sbomnix -- \
-                --csv result-sbom-${TARGET}/sbom.csv \
-                --cdx result-sbom-${TARGET}/sbom.cdx.json \
-                --spdx result-sbom-${TARGET}/sbom.spdx.json \
-                .#packages.${TARGET}
-              '''
-              archiveArtifacts allowEmptyArchive: true,
-                artifacts: "result-sbom-${TARGET}/**"
+              ws('ghaf') {
+                sh 'mkdir -p result-sbom-${TARGET}'
+                sh '''
+                  nix run github:tiiuae/sbomnix#sbomnix -- \
+                  --csv result-sbom-${TARGET}/sbom.csv \
+                  --cdx result-sbom-${TARGET}/sbom.cdx.json \
+                  --spdx result-sbom-${TARGET}/sbom.spdx.json \
+                  .#packages.${TARGET}
+                '''
+                archiveArtifacts allowEmptyArchive: true,
+                  artifacts: "result-sbom-${TARGET}/**"
+              }
             }
           }
           stage('Another test') {
