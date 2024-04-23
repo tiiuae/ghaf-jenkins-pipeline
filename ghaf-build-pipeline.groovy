@@ -4,30 +4,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-////////////////////////////////////////////////////////////////////////////////
-
-def DEF_GHAF_REPO = 'https://github.com/tiiuae/ghaf'
-def DEF_GITREF = 'main'
-def DEF_REBASE = false
-
-////////////////////////////////////////////////////////////////////////////////
-
-properties([
-  // Poll every minute
-  pipelineTriggers([pollSCM('* * * * *')]),
-  parameters([
-    string(name: 'REPO', defaultValue: DEF_GHAF_REPO, description: 'Target Ghaf repository'),
-    string(name: 'GITREF', defaultValue: DEF_GITREF, description: 'Target gitref (commit/branch/tag) to build'),
-    booleanParam(name: 'REBASE', defaultValue: DEF_REBASE, description: 'Rebase on top of tiiuae/ghaf main'),
-  ])
-])
-
-////////////////////////////////////////////////////////////////////////////////
-
 pipeline {
-  agent { label 'built-in' }
+  agent any
+  parameters {
+    string name: 'URL', defaultValue: 'https://github.com/tiiuae/ghaf.git'
+    string name: 'BRANCH', defaultValue: 'main'
+  }
+  triggers {
+    pollSCM '* * * * *'
+  }
   options {
-    timestamps ()
+    timestamps()
+    disableConcurrentBuilds()
     buildDiscarder logRotator(
       artifactDaysToKeepStr: '7',
       artifactNumToKeepStr: '10',
@@ -35,65 +23,37 @@ pipeline {
       numToKeepStr: '100'
     )
   }
-  environment {
-    // https://stackoverflow.com/questions/46680573
-    REPO = params.getOrDefault('REPO', DEF_GHAF_REPO)
-    GITREF = params.getOrDefault('GITREF', DEF_GITREF)
-    REBASE = params.getOrDefault('REBASE', DEF_REBASE)
-  }
   stages {
-    // Changes to the repo/branch configured here will trigger the pipeline
-    stage('Configure target repo') {
+    stage('Checkout') {
       steps {
-        script {
-          SCM = git(url: DEF_GHAF_REPO, branch: DEF_GITREF)
+        dir('ghaf') {
+          checkout scmGit(
+            branches: [[name: params.BRANCH]],
+            extensions: [cleanBeforeCheckout()],
+            userRemoteConfigs: [[url: params.URL]]
+          )
         }
       }
     }
-    stage('Build') {
-      stages {
-        stage('Checkout') {
-          steps {
-            sh 'rm -rf ghaf'
-            sh 'git clone $REPO ghaf'
-            dir('ghaf') {
-              sh 'git checkout $GITREF'
-            }
-          }
+    stage('Build on x86_64') {
+      steps {
+        dir('ghaf') {
+          sh 'nix build -L .#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64 -o result-jetson-orin-agx-debug'
+          sh 'nix build -L .#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64  -o result-jetson-orin-nx-debug'
+          sh 'nix build -L .#packages.x86_64-linux.generic-x86_64-debug                     -o result-generic-x86_64-debug'
+          sh 'nix build -L .#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug             -o result-lenovo-x1-carbon-gen11-debug'
+          sh 'nix build -L .#packages.riscv64-linux.microchip-icicle-kit-debug              -o result-microchip-icicle-kit-debug'
+          sh 'nix build -L .#packages.x86_64-linux.doc                                      -o result-doc'
         }
-        stage('Rebase') {
-          when { expression { env.REBASE == true || params.REBASE == true } }
-          steps {
-            dir('ghaf') {
-              sh 'git config user.email "jenkins@demo.fi"'
-              sh 'git config user.name "Jenkins"'
-              sh 'git remote add tiiuae https://github.com/tiiuae/ghaf.git'
-              sh 'git fetch tiiuae'
-              sh 'git rebase tiiuae/main'
-            }
-          }
-        }
-        stage('Build on x86_64') {
-          steps {
-            dir('ghaf') {
-              sh 'nix build -L .#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64 -o result-jetson-orin-agx-debug'
-              sh 'nix build -L .#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64  -o result-jetson-orin-nx-debug'
-              sh 'nix build -L .#packages.x86_64-linux.generic-x86_64-debug                     -o result-generic-x86_64-debug'
-              sh 'nix build -L .#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug             -o result-lenovo-x1-carbon-gen11-debug'
-              sh 'nix build -L .#packages.riscv64-linux.microchip-icicle-kit-debug              -o result-microchip-icicle-kit-debug'
-              sh 'nix build -L .#packages.x86_64-linux.doc                                      -o result-doc'
-            }
-          }
-        }
-        stage('Build on aarch64') {
-          steps {
-            dir('ghaf') {
-              sh 'nix build -L .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug -o result-aarch64-jetson-orin-agx-debug'
-              sh 'nix build -L .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug  -o result-aarch64-jetson-orin-nx-debug'
-              sh 'nix build -L .#packages.aarch64-linux.imx8qm-mek-debug             -o result-aarch64-imx8qm-mek-debug'
-              sh 'nix build -L .#packages.aarch64-linux.doc                          -o result-aarch64-doc'
-            }
-          }
+      }
+    }
+    stage('Build on aarch64') {
+      steps {
+        dir('ghaf') {
+          sh 'nix build -L .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug -o result-aarch64-jetson-orin-agx-debug'
+          sh 'nix build -L .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug  -o result-aarch64-jetson-orin-nx-debug'
+          sh 'nix build -L .#packages.aarch64-linux.imx8qm-mek-debug             -o result-aarch64-imx8qm-mek-debug'
+          sh 'nix build -L .#packages.aarch64-linux.doc                          -o result-aarch64-doc'
         }
       }
     }
