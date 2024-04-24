@@ -57,26 +57,39 @@ pipeline {
         }
       }
     }
-
     stage('SBOM') {
       steps {
         dir('ghaf') {
-          sh 'nix run github:tiiuae/sbomnix#sbomnix -- .#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64 --csv result-jetson-orin-agx-debug.csv --cdx result-jetson-orin-agx-debug.cdx.json --spdx result-jetson-orin-agx-debug.spdx.json'
-          sh 'nix run github:tiiuae/sbomnix#sbomnix -- .#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64 --csv result-jetson-orin-nx-debug.csv --cdx result-jetson-orin-nx-debug.cdx.json --spdx result-jetson-orin-nx-debug.json'
-          sh 'nix run github:tiiuae/sbomnix#sbomnix -- .#packages.x86_64-linux.generic-x86_64-debug  --csv result-generic-x86_64-debug.csv --cdx result-generic-x86_64-debugcdx.cdx.json --spdx result-generic-x86_64-debug.spdx.json'
-          sh 'nix run github:tiiuae/sbomnix#sbomnix -- .#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug --csv result-lenovo-x1-carbon-gen11-debug.csv --cdx result-lenovo-x1-carbon-gen11-debug.cdx.json --spdx result-lenovo-x1-carbon-gen11-debug.spdx.json'
-          sh 'nix run github:tiiuae/sbomnix#sbomnix -- .#packages.riscv64-linux.microchip-icicle-kit-debug --csv result-microchip-icicle-kit-debug.csv --cdx result-microchip-icicle-kit-debug.cdx.json --spdx result-microchip-icicle-kit-debug.spdx.json'
-          sh 'nix run github:tiiuae/sbomnix#sbomnix -- .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug --csv result-aarch64-jetson-orin-agx-debug.csv --cdx result-aarch64-jetson-orin-agx-debug.cdx.json --spdx result-aarch64-jetson-orin-agx-debug.spdx.json'
-          sh 'nix run github:tiiuae/sbomnix#sbomnix -- .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug  --csv result-aarch64-jetson-orin-nx-debug.csv --cdx esult-aarch64-jetson-orin-nx-debug.cdx.json --spdx result-aarch64-jetson-orin-nx-debug.json'
-          sh 'nix run github:tiiuae/sbomnix#sbomnix -- .#packages.aarch64-linux.imx8qm-mek-debug   --csv result-aarch64-imx8qm-mek-debug.csv --cdx result-aarch64-imx8qm-mek-debug.cdx.json --spdx result-aarch64-imx8qm-mek-debug.spdx.json'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64 --csv result-jetson-orin-agx-debug.csv --cdx result-jetson-orin-agx-debug.cdx.json --spdx result-jetson-orin-agx-debug.spdx.json'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64 --csv result-jetson-orin-nx-debug.csv --cdx result-jetson-orin-nx-debug.cdx.json --spdx result-jetson-orin-nx-debug.json'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.x86_64-linux.generic-x86_64-debug  --csv result-generic-x86_64-debug.csv --cdx result-generic-x86_64-debugcdx.cdx.json --spdx result-generic-x86_64-debug.spdx.json'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug --csv result-lenovo-x1-carbon-gen11-debug.csv --cdx result-lenovo-x1-carbon-gen11-debug.cdx.json --spdx result-lenovo-x1-carbon-gen11-debug.spdx.json'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.riscv64-linux.microchip-icicle-kit-debug --csv result-microchip-icicle-kit-debug.csv --cdx result-microchip-icicle-kit-debug.cdx.json --spdx result-microchip-icicle-kit-debug.spdx.json'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug --csv result-aarch64-jetson-orin-agx-debug.csv --cdx result-aarch64-jetson-orin-agx-debug.cdx.json --spdx result-aarch64-jetson-orin-agx-debug.spdx.json'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug  --csv result-aarch64-jetson-orin-nx-debug.csv --cdx esult-aarch64-jetson-orin-nx-debug.cdx.json --spdx result-aarch64-jetson-orin-nx-debug.json'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.aarch64-linux.imx8qm-mek-debug   --csv result-aarch64-imx8qm-mek-debug.csv --cdx result-aarch64-imx8qm-mek-debug.cdx.json --spdx result-aarch64-imx8qm-mek-debug.spdx.json'
+        }
+      }
+    }
+    stage('Vulnxscan runtime') {
+      steps {
+        dir('ghaf') {
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64 --out result-vulns-jetson-orin-agx-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64 --out result-vulns-jetson-orin-nx-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.x86_64-linux.generic-x86_64-debug --out result-vulns-generic-x86_64-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug --out result-vulns-lenovo-x1-carbon-gen11-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.riscv64-linux.microchip-icicle-kit-debug --out result-vulns-microchip-icicle-kit-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug --out result-vulns-aarch64-jetson-orin-agx-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug --out result-vulns-aarch64-jetson-orin-nx-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.aarch64-linux.imx8qm-mek-debug --out result-vulns-aarch64-imx8qm-mek-debug.csv'
         }
       }
     }
   }
   post {
     always {
-      archiveArtifacts allowEmptyArchive: true, artifacts: 'ghaf/result-*/**'
       archiveArtifacts allowEmptyArchive: true, artifacts: "ghaf/result-*"
+      archiveArtifacts allowEmptyArchive: true, artifacts: "ghaf/result-*/**"
       archiveArtifacts allowEmptyArchive: true, artifacts: "ghaf/result-aarch64*/**"
     }
   }
