@@ -73,7 +73,7 @@ pipeline {
         PROVENANCE_TIMESTAMP_FINISHED = "${env.ts_build_finished}"
         PROVENANCE_EXTERNAL_PARAMS = sh(
           returnStdout: true,
-          script: 'jq -n --arg flakeURI $URL --arg flakeBranch $BRANCH \'$ARGS.named\'' 
+          script: 'jq -n --arg flakeURI $URL --arg flakeBranch $BRANCH \'$ARGS.named\''
         )
         PROVENANCE_INTERNAL_PARAMS = sh(
           returnStdout: true,
@@ -126,6 +126,14 @@ pipeline {
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug --out result-vulns-aarch64-jetson-orin-agx-debug.csv'
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug --out result-vulns-aarch64-jetson-orin-nx-debug.csv'
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.aarch64-linux.imx8qm-mek-debug --out result-vulns-aarch64-imx8qm-mek-debug.csv'
+          sh 'csvcut result-vulns-jetson-orin-agx-debug.csv --not-columns sortcol | csvlook -I > result-vulns-jetson-orin-agx-debug.txt'
+          sh 'csvcut result-vulns-jetson-orin-nx-debug.csv --not-columns sortcol | csvlook -I > result-vulns-jetson-orin-nx-debug.txt'
+          sh 'csvcut result-vulns-generic-x86_64-debug.csv --not-columns sortcol | csvlook -I > result-vulns-generic-x86_64-debug.txt'
+          sh 'csvcut result-vulns-lenovo-x1-carbon-gen11-debug.csv --not-columns sortcol | csvlook -I > result-vulns-lenovo-x1-carbon-gen11-debug.txt'
+          sh 'csvcut result-vulns-microchip-icicle-kit-debug.csv --not-columns sortcol | csvlook -I > result-vulns-microchip-icicle-kit-debug.txt'
+          sh 'csvcut result-vulns-aarch64-jetson-orin-agx-debug.csv --not-columns sortcol | csvlook -I > result-vulns-aarch64-jetson-orin-agx-debug.txt'
+          sh 'csvcut result-vulns-aarch64-jetson-orin-nx-debug.csv --not-columns sortcol | csvlook -I > result-vulns-aarch64-jetson-orin-nx-debug.txt'
+          sh 'csvcut result-vulns-aarch64-imx8qm-mek-debug.csv --not-columns sortcol | csvlook -I > result-vulns-aarch64-imx8qm-mek-debug.txt'
         }
       }
     }
