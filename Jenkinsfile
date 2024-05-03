@@ -4,16 +4,26 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+// Default values for parameters
+DEFAULT_URL = 'https://github.com/tiiuae/ghaf.git'
+DEFAULT_REF = 'main'
+DEFAULT_SBOMNIX = 'a1f0f88d719687acedd989899ecd7fafab42394c'
+
 pipeline {
   agent any
   parameters {
-    string name: 'URL',
-      defaultValue: 'https://github.com/tiiuae/ghaf.git'
-    string name: 'BRANCH',
-      defaultValue: 'main'
-    string name: 'SBOMNIX',
-      defaultValue: 'a1f0f88d719687acedd989899ecd7fafab42394c',
-      description: 'sbomnix revision'
+    string description: 'Repository URL',
+      name: 'URL',
+      defaultValue: DEFAULT_URL
+    string description: 'Branch (or revision reference) Specifier',
+      name: 'BRANCH',
+      defaultValue: DEFAULT_REF
+    string description: 'sbomnix project revision',
+      name: 'SBOMNIX',
+      defaultValue: DEFAULT_SBOMNIX
+  }
+  triggers {
+    pollSCM 'H 21 * * *'
   }
   options {
     disableConcurrentBuilds()
@@ -25,16 +35,15 @@ pipeline {
      )
   }
   environment {
-    AARCH64_AGX_DEBUG  = 'aarch64-linux.nvidia-jetson-orin-agx-debug'
-    AARCH64_NX_DEBUG   = 'aarch64-linux.nvidia-jetson-orin-nx-debug'
-    AARCH64_MEK_DEBUG  = 'aarch64-linux.imx8qm-mek-debug'
-    AARCH64_DOC        = 'aarch64-linux.doc'
-    RISCV64_ICICLE_KIT = 'riscv64-linux.microchip-icicle-kit-debug'
-    X86_64_AGX_DEBUG   = 'x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64'
-    X86_64_NX_DEBUG    = 'x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64'
-    X86_64_DEBUG       = 'x86_64-linux.generic-x86_64-debug'
-    X86_64_GEN11_DEBUG = 'x86_64-linux.lenovo-x1-carbon-gen11-debug'
-    X86_64_DOC         = 'x86_64-linux.doc'
+    PROVENANCE_BUILD_TYPE = 'https://docs.cimon.build/provenance/buildtypes/jenkins/v1'
+    PROVENANCE_BUILDER_ID = "$JENKINS_URL"
+    PROVENANCE_INVOCATION_ID = "$BUILD_URL"
+
+    // Use default values if parameter values are not yet defined
+    // like the case on the very first run
+    GHAF_URL = params.getOrDefault('URL', DEFAULT_URL)
+    GHAF_REF = params.getOrDefault('BRACH', DEFAULT_REF)
+    SBOMNIX_REF = params.getOrDefault('SBOMNIX', DEFAULT_SBOMNIX)
   }
   stages {
     stage('Checkout') {
@@ -44,7 +53,8 @@ pipeline {
           checkout scmGit(
             branches: [[name: params.BRANCH]],
             extensions: [cleanBeforeCheckout()],
-            userRemoteConfigs: [[url: params.URL]])
+            userRemoteConfigs: [[url: params.URL]]
+          )
         }
       }
     }
@@ -52,14 +62,49 @@ pipeline {
       parallel {
 
         stage("AARCH64_AGX_DEBUG") {
+          environment {
+            GHAF_TARGET='aarch64-linux.nvidia-jetson-orin-agx-debug'
+          }
           stages {
             stage("Build AARCH64_AGX_DEBUG") {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'nix build -L .#packages.${AARCH64_AGX_DEBUG} -o result-${AARCH64_AGX_DEBUG}'
+                  sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
+                  sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
+                  sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-${AARCH64_AGX_DEBUG}/**"
+                    artifacts: "result-${GHAF_TARGET}/**"
+                }
+              }
+            }
+            stage("Generate provenance for AARCH64_AGX_DEBUG") {
+              agent any
+              steps {
+                ws('workspace/ghaf-pipeline/ghaf') {
+                  sh '''
+                    PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
+                    PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
+                    PROVENANCE_EXTERNAL_PARAMS=$(jq -n \
+                      --arg repository $GHAF_URL \
+                      --arg ref $GHAF_REF \
+                      --arg target $GHAF_TARGET \
+                      '$ARGS.named')
+                    PROVENANCE_INTERNAL_PARAMS=$(jq -n \
+                      --arg agent $NODE_NAME \
+                      --arg ws $WORKSPACE \
+                      '$ARGS.named')
+                    export PROVENANCE_TIMESTAMP_BEGIN
+                    export PROVENANCE_TIMESTAMP_FINISHED
+                    export PROVENANCE_EXTERNAL_PARAMS
+                    export PROVENANCE_INTERNAL_PARAMS
+                    mkdir -p result-provenance-${GHAF_TARGET}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#provenance -- \
+                      .#packages.${GHAF_TARGET} --recursive \
+                      --out result-provenance-${GHAF_TARGET}/provenance.json
+                  '''
+                  archiveArtifacts allowEmptyArchive: true,
+                    artifacts: "result-provenance-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -67,16 +112,16 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-sbom-${AARCH64_AGX_DEBUG}'
+                  sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#sbomnix -- \
-                    --csv result-sbom-${AARCH64_AGX_DEBUG}/sbom.csv \
-                    --cdx result-sbom-${AARCH64_AGX_DEBUG}/sbom.cdx.json \
-                    --spdx result-sbom-${AARCH64_AGX_DEBUG}/sbom.spdx.json \
-                    .#packages.${AARCH64_AGX_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
+                    --csv result-sbom-${GHAF_TARGET}/sbom.csv \
+                    --cdx result-sbom-${GHAF_TARGET}/sbom.cdx.json \
+                    --spdx result-sbom-${GHAF_TARGET}/sbom.spdx.json \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-sbom-${AARCH64_AGX_DEBUG}/**"
+                    artifacts: "result-sbom-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -84,14 +129,14 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-vulnxscan-${AARCH64_AGX_DEBUG}'
+                  sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#vulnxscan -- \
-                    --out result-vulnxscan-${AARCH64_AGX_DEBUG}/vulns.csv \
-                    .#packages.${AARCH64_AGX_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
+                    --out result-vulnxscan-${GHAF_TARGET}/vulns.csv \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-vulnxscan-${AARCH64_AGX_DEBUG}/**"
+                    artifacts: "result-vulnxscan-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -99,14 +144,49 @@ pipeline {
         }
 
         stage("AARCH64_NX_DEBUG") {
+          environment {
+            GHAF_TARGET='aarch64-linux.nvidia-jetson-orin-nx-debug'
+          }
           stages {
             stage("Build AARCH64_NX_DEBUG") {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'nix build -L .#packages.${AARCH64_NX_DEBUG} -o result-${AARCH64_NX_DEBUG}'
+                  sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
+                  sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
+                  sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-${AARCH64_NX_DEBUG}/**"
+                    artifacts: "result-${GHAF_TARGET}/**"
+                }
+              }
+            }
+            stage("Generate provenance for AARCH64_NX_DEBUG") {
+              agent any
+              steps {
+                ws('workspace/ghaf-pipeline/ghaf') {
+                  sh '''
+                    PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
+                    PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
+                    PROVENANCE_EXTERNAL_PARAMS=$(jq -n \
+                      --arg repository $GHAF_URL \
+                      --arg ref $GHAF_REF \
+                      --arg target $GHAF_TARGET \
+                      '$ARGS.named')
+                    PROVENANCE_INTERNAL_PARAMS=$(jq -n \
+                      --arg agent $NODE_NAME \
+                      --arg ws $WORKSPACE \
+                      '$ARGS.named')
+                    export PROVENANCE_TIMESTAMP_BEGIN
+                    export PROVENANCE_TIMESTAMP_FINISHED
+                    export PROVENANCE_EXTERNAL_PARAMS
+                    export PROVENANCE_INTERNAL_PARAMS
+                    mkdir -p result-provenance-${GHAF_TARGET}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#provenance -- \
+                      .#packages.${GHAF_TARGET} --recursive \
+                      --out result-provenance-${GHAF_TARGET}/provenance.json
+                  '''
+                  archiveArtifacts allowEmptyArchive: true,
+                    artifacts: "result-provenance-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -114,16 +194,16 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-sbom-${AARCH64_NX_DEBUG}'
+                  sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#sbomnix -- \
-                    --csv result-sbom-${AARCH64_NX_DEBUG}/sbom.csv \
-                    --cdx result-sbom-${AARCH64_NX_DEBUG}/sbom.cdx.json \
-                    --spdx result-sbom-${AARCH64_NX_DEBUG}/sbom.spdx.json \
-                    .#packages.${AARCH64_NX_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
+                    --csv result-sbom-${GHAF_TARGET}/sbom.csv \
+                    --cdx result-sbom-${GHAF_TARGET}/sbom.cdx.json \
+                    --spdx result-sbom-${GHAF_TARGET}/sbom.spdx.json \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-sbom-${AARCH64_NX_DEBUG}/**"
+                    artifacts: "result-sbom-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -131,14 +211,96 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-vulnxscan-${AARCH64_NX_DEBUG}'
+                  sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#vulnxscan -- \
-                    --out result-vulnxscan-${AARCH64_NX_DEBUG}/vulns.csv \
-                    .#packages.${AARCH64_NX_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
+                    --out result-vulnxscan-${GHAF_TARGET}/vulns.csv \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-vulnxscan-${AARCH64_NX_DEBUG}/**"
+                    artifacts: "result-vulnxscan-${GHAF_TARGET}/**"
+                }
+              }
+            }
+          }
+        }
+
+        stage("AARCH64_NX_RELEASE") {
+          environment {
+            GHAF_TARGET='aarch64-linux.nvidia-jetson-orin-nx-release'
+          }
+          stages {
+            stage("Build AARCH64_NX_RELEASE") {
+              agent any
+              steps {
+                ws('workspace/ghaf-pipeline/ghaf') {
+                  sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
+                  sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
+                  sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
+                  archiveArtifacts allowEmptyArchive: true,
+                    artifacts: "result-${GHAF_TARGET}/**"
+                }
+              }
+            }
+            stage("Generate provenance for AARCH64_NX_RELEASE") {
+              agent any
+              steps {
+                ws('workspace/ghaf-pipeline/ghaf') {
+                  sh '''
+                    PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
+                    PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
+                    PROVENANCE_EXTERNAL_PARAMS=$(jq -n \
+                      --arg repository $GHAF_URL \
+                      --arg ref $GHAF_REF \
+                      --arg target $GHAF_TARGET \
+                      '$ARGS.named')
+                    PROVENANCE_INTERNAL_PARAMS=$(jq -n \
+                      --arg agent $NODE_NAME \
+                      --arg ws $WORKSPACE \
+                      '$ARGS.named')
+                    export PROVENANCE_TIMESTAMP_BEGIN
+                    export PROVENANCE_TIMESTAMP_FINISHED
+                    export PROVENANCE_EXTERNAL_PARAMS
+                    export PROVENANCE_INTERNAL_PARAMS
+                    mkdir -p result-provenance-${GHAF_TARGET}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#provenance -- \
+                      .#packages.${GHAF_TARGET} --recursive \
+                      --out result-provenance-${GHAF_TARGET}/provenance.json
+                  '''
+                  archiveArtifacts allowEmptyArchive: true,
+                    artifacts: "result-provenance-${GHAF_TARGET}/**"
+                }
+              }
+            }
+            stage("Generate SBOM for AARCH64_NX_RELEASE") {
+              agent any
+              steps {
+                ws('workspace/ghaf-pipeline/ghaf') {
+                  sh 'mkdir -p result-sbom-${GHAF_TARGET}'
+                  sh '''
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
+                    --csv result-sbom-${GHAF_TARGET}/sbom.csv \
+                    --cdx result-sbom-${GHAF_TARGET}/sbom.cdx.json \
+                    --spdx result-sbom-${GHAF_TARGET}/sbom.spdx.json \
+                    .#packages.${GHAF_TARGET}
+                  '''
+                  archiveArtifacts allowEmptyArchive: true,
+                    artifacts: "result-sbom-${GHAF_TARGET}/**"
+                }
+              }
+            }
+            stage("Run vulnerability scan for AARCH64_NX_RELEASE") {
+              agent any
+              steps {
+                ws('workspace/ghaf-pipeline/ghaf') {
+                  sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
+                  sh '''
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
+                    --out result-vulnxscan-${GHAF_TARGET}/vulns.csv \
+                    .#packages.${GHAF_TARGET}
+                  '''
+                  archiveArtifacts allowEmptyArchive: true,
+                    artifacts: "result-vulnxscan-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -146,14 +308,49 @@ pipeline {
         }
 
         stage("AARCH64_MEK_DEBUG") {
+          environment {
+            GHAF_TARGET='aarch64-linux.imx8qm-mek-debug'
+          }
           stages {
             stage("Build AARCH64_MEK_DEBUG") {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'nix build -L .#packages.${AARCH64_MEK_DEBUG} -o result-${AARCH64_MEK_DEBUG}'
+                  sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
+                  sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
+                  sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-${AARCH64_MEK_DEBUG}/**"
+                    artifacts: "result-${GHAF_TARGET}/**"
+                }
+              }
+            }
+            stage("Generate provenance for AARCH64_MEK_DEBUG") {
+              agent any
+              steps {
+                ws('workspace/ghaf-pipeline/ghaf') {
+                  sh '''
+                    PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
+                    PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
+                    PROVENANCE_EXTERNAL_PARAMS=$(jq -n \
+                      --arg repository $GHAF_URL \
+                      --arg ref $GHAF_REF \
+                      --arg target $GHAF_TARGET \
+                      '$ARGS.named')
+                    PROVENANCE_INTERNAL_PARAMS=$(jq -n \
+                      --arg agent $NODE_NAME \
+                      --arg ws $WORKSPACE \
+                      '$ARGS.named')
+                    export PROVENANCE_TIMESTAMP_BEGIN
+                    export PROVENANCE_TIMESTAMP_FINISHED
+                    export PROVENANCE_EXTERNAL_PARAMS
+                    export PROVENANCE_INTERNAL_PARAMS
+                    mkdir -p result-provenance-${GHAF_TARGET}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#provenance -- \
+                      .#packages.${GHAF_TARGET} --recursive \
+                      --out result-provenance-${GHAF_TARGET}/provenance.json
+                  '''
+                  archiveArtifacts allowEmptyArchive: true,
+                    artifacts: "result-provenance-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -161,16 +358,16 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-sbom-${AARCH64_MEK_DEBUG}'
+                  sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#sbomnix -- \
-                    --csv result-sbom-${AARCH64_MEK_DEBUG}/sbom.csv \
-                    --cdx result-sbom-${AARCH64_MEK_DEBUG}/sbom.cdx.json \
-                    --spdx result-sbom-${AARCH64_MEK_DEBUG}/sbom.spdx.json \
-                    .#packages.${AARCH64_MEK_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
+                    --csv result-sbom-${GHAF_TARGET}/sbom.csv \
+                    --cdx result-sbom-${GHAF_TARGET}/sbom.cdx.json \
+                    --spdx result-sbom-${GHAF_TARGET}/sbom.spdx.json \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-sbom-${AARCH64_MEK_DEBUG}/**"
+                    artifacts: "result-sbom-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -178,61 +375,14 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-vulnxscan-${AARCH64_MEK_DEBUG}'
+                  sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#vulnxscan -- \
-                    --out result-vulnxscan-${AARCH64_MEK_DEBUG}/vulns.csv \
-                    .#packages.${AARCH64_MEK_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
+                    --out result-vulnxscan-${GHAF_TARGET}/vulns.csv \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-vulnxscan-${AARCH64_MEK_DEBUG}/**"
-                }
-              }
-            }
-          }
-        }
-
-        stage("AARCH64_DOC") {
-          stages {
-            stage("Build AARCH64_DOC") {
-              agent any
-              steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'nix build -L .#packages.${AARCH64_DOC} -o result-${AARCH64_DOC}'
-                  archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-${AARCH64_DOC}/**"
-                }
-              }
-            }
-            stage("Generate SBOM for AARCH64_DOC") {
-              agent any
-              steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-sbom-${AARCH64_DOC}'
-                  sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#sbomnix -- \
-                    --csv result-sbom-${AARCH64_DOC}/sbom.csv \
-                    --cdx result-sbom-${AARCH64_DOC}/sbom.cdx.json \
-                    --spdx result-sbom-${AARCH64_DOC}/sbom.spdx.json \
-                    .#packages.${AARCH64_DOC}
-                  '''
-                  archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-sbom-${AARCH64_DOC}/**"
-                }
-              }
-            }
-            stage("Run vulnerability scan for AARCH64_DOC") {
-              agent any
-              steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-vulnxscan-${AARCH64_DOC}'
-                  sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#vulnxscan -- \
-                    --out result-vulnxscan-${AARCH64_DOC}/vulns.csv \
-                    .#packages.${AARCH64_DOC}
-                  '''
-                  archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-vulnxscan-${AARCH64_DOC}/**"
+                    artifacts: "result-vulnxscan-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -240,14 +390,49 @@ pipeline {
         }
 
         stage("RISCV64_ICICLE_KIT") {
+          environment {
+            GHAF_TARGET='riscv64-linux.microchip-icicle-kit-debug'
+          }
           stages {
             stage("Build RISCV64_ICICLE_KIT") {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'nix build -L .#packages.${RISCV64_ICICLE_KIT} -o result-${RISCV64_ICICLE_KIT}'
+                  sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
+                  sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
+                  sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-${RISCV64_ICICLE_KIT}/**"
+                    artifacts: "result-${GHAF_TARGET}/**"
+                }
+              }
+            }
+            stage("Generate provenance for RISCV64_ICICLE_KIT") {
+              agent any
+              steps {
+                ws('workspace/ghaf-pipeline/ghaf') {
+                  sh '''
+                    PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
+                    PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
+                    PROVENANCE_EXTERNAL_PARAMS=$(jq -n \
+                      --arg repository $GHAF_URL \
+                      --arg ref $GHAF_REF \
+                      --arg target $GHAF_TARGET \
+                      '$ARGS.named')
+                    PROVENANCE_INTERNAL_PARAMS=$(jq -n \
+                      --arg agent $NODE_NAME \
+                      --arg ws $WORKSPACE \
+                      '$ARGS.named')
+                    export PROVENANCE_TIMESTAMP_BEGIN
+                    export PROVENANCE_TIMESTAMP_FINISHED
+                    export PROVENANCE_EXTERNAL_PARAMS
+                    export PROVENANCE_INTERNAL_PARAMS
+                    mkdir -p result-provenance-${GHAF_TARGET}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#provenance -- \
+                      .#packages.${GHAF_TARGET} --recursive \
+                      --out result-provenance-${GHAF_TARGET}/provenance.json
+                  '''
+                  archiveArtifacts allowEmptyArchive: true,
+                    artifacts: "result-provenance-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -255,16 +440,16 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-sbom-${RISCV64_ICICLE_KIT}'
+                  sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#sbomnix -- \
-                    --csv result-sbom-${RISCV64_ICICLE_KIT}/sbom.csv \
-                    --cdx result-sbom-${RISCV64_ICICLE_KIT}/sbom.cdx.json \
-                    --spdx result-sbom-${RISCV64_ICICLE_KIT}/sbom.spdx.json \
-                    .#packages.${RISCV64_ICICLE_KIT}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
+                    --csv result-sbom-${GHAF_TARGET}/sbom.csv \
+                    --cdx result-sbom-${GHAF_TARGET}/sbom.cdx.json \
+                    --spdx result-sbom-${GHAF_TARGET}/sbom.spdx.json \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-sbom-${RISCV64_ICICLE_KIT}/**"
+                    artifacts: "result-sbom-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -272,14 +457,14 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-vulnxscan-${RISCV64_ICICLE_KIT}'
+                  sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#vulnxscan -- \
-                    --out result-vulnxscan-${RISCV64_ICICLE_KIT}/vulns.csv \
-                    .#packages.${RISCV64_ICICLE_KIT}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
+                    --out result-vulnxscan-${GHAF_TARGET}/vulns.csv \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-vulnxscan-${RISCV64_ICICLE_KIT}/**"
+                    artifacts: "result-vulnxscan-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -287,14 +472,49 @@ pipeline {
         }
 
         stage("X86_64_AGX_DEBUG") {
+          environment {
+            GHAF_TARGET='x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64'
+          }
           stages {
             stage("Build X86_64_AGX_DEBUG") {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'nix build -L .#packages.${X86_64_AGX_DEBUG} -o result-${X86_64_AGX_DEBUG}'
+                  sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
+                  sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
+                  sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-${X86_64_AGX_DEBUG}/**"
+                    artifacts: "result-${GHAF_TARGET}/**"
+                }
+              }
+            }
+            stage("Generate provenance for X86_64_AGX_DEBUG") {
+              agent any
+              steps {
+                ws('workspace/ghaf-pipeline/ghaf') {
+                  sh '''
+                    PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
+                    PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
+                    PROVENANCE_EXTERNAL_PARAMS=$(jq -n \
+                      --arg repository $GHAF_URL \
+                      --arg ref $GHAF_REF \
+                      --arg target $GHAF_TARGET \
+                      '$ARGS.named')
+                    PROVENANCE_INTERNAL_PARAMS=$(jq -n \
+                      --arg agent $NODE_NAME \
+                      --arg ws $WORKSPACE \
+                      '$ARGS.named')
+                    export PROVENANCE_TIMESTAMP_BEGIN
+                    export PROVENANCE_TIMESTAMP_FINISHED
+                    export PROVENANCE_EXTERNAL_PARAMS
+                    export PROVENANCE_INTERNAL_PARAMS
+                    mkdir -p result-provenance-${GHAF_TARGET}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#provenance -- \
+                      .#packages.${GHAF_TARGET} --recursive \
+                      --out result-provenance-${GHAF_TARGET}/provenance.json
+                  '''
+                  archiveArtifacts allowEmptyArchive: true,
+                    artifacts: "result-provenance-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -302,16 +522,16 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-sbom-${X86_64_AGX_DEBUG}'
+                  sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#sbomnix -- \
-                    --csv result-sbom-${X86_64_AGX_DEBUG}/sbom.csv \
-                    --cdx result-sbom-${X86_64_AGX_DEBUG}/sbom.cdx.json \
-                    --spdx result-sbom-${X86_64_AGX_DEBUG}/sbom.spdx.json \
-                    .#packages.${X86_64_AGX_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
+                    --csv result-sbom-${GHAF_TARGET}/sbom.csv \
+                    --cdx result-sbom-${GHAF_TARGET}/sbom.cdx.json \
+                    --spdx result-sbom-${GHAF_TARGET}/sbom.spdx.json \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-sbom-${X86_64_AGX_DEBUG}/**"
+                    artifacts: "result-sbom-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -319,14 +539,14 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-vulnxscan-${X86_64_AGX_DEBUG}'
+                  sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#vulnxscan -- \
-                    --out result-vulnxscan-${X86_64_AGX_DEBUG}/vulns.csv \
-                    .#packages.${X86_64_AGX_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
+                    --out result-vulnxscan-${GHAF_TARGET}/vulns.csv \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-vulnxscan-${X86_64_AGX_DEBUG}/**"
+                    artifacts: "result-vulnxscan-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -334,14 +554,49 @@ pipeline {
         }
 
         stage("X86_64_NX_DEBUG") {
+          environment {
+            GHAF_TARGET='x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64'
+          }
           stages {
             stage("Build X86_64_NX_DEBUG") {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'nix build -L .#packages.${X86_64_NX_DEBUG} -o result-${X86_64_NX_DEBUG}'
+                  sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
+                  sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
+                  sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-${X86_64_NX_DEBUG}/**"
+                    artifacts: "result-${GHAF_TARGET}/**"
+                }
+              }
+            }
+            stage("Generate provenance for X86_64_NX_DEBUG") {
+              agent any
+              steps {
+                ws('workspace/ghaf-pipeline/ghaf') {
+                  sh '''
+                    PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
+                    PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
+                    PROVENANCE_EXTERNAL_PARAMS=$(jq -n \
+                      --arg repository $GHAF_URL \
+                      --arg ref $GHAF_REF \
+                      --arg target $GHAF_TARGET \
+                      '$ARGS.named')
+                    PROVENANCE_INTERNAL_PARAMS=$(jq -n \
+                      --arg agent $NODE_NAME \
+                      --arg ws $WORKSPACE \
+                      '$ARGS.named')
+                    export PROVENANCE_TIMESTAMP_BEGIN
+                    export PROVENANCE_TIMESTAMP_FINISHED
+                    export PROVENANCE_EXTERNAL_PARAMS
+                    export PROVENANCE_INTERNAL_PARAMS
+                    mkdir -p result-provenance-${GHAF_TARGET}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#provenance -- \
+                      .#packages.${GHAF_TARGET} --recursive \
+                      --out result-provenance-${GHAF_TARGET}/provenance.json
+                  '''
+                  archiveArtifacts allowEmptyArchive: true,
+                    artifacts: "result-provenance-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -349,16 +604,16 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-sbom-${X86_64_NX_DEBUG}'
+                  sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#sbomnix -- \
-                    --csv result-sbom-${X86_64_NX_DEBUG}/sbom.csv \
-                    --cdx result-sbom-${X86_64_NX_DEBUG}/sbom.cdx.json \
-                    --spdx result-sbom-${X86_64_NX_DEBUG}/sbom.spdx.json \
-                    .#packages.${X86_64_NX_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
+                    --csv result-sbom-${GHAF_TARGET}/sbom.csv \
+                    --cdx result-sbom-${GHAF_TARGET}/sbom.cdx.json \
+                    --spdx result-sbom-${GHAF_TARGET}/sbom.spdx.json \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-sbom-${X86_64_NX_DEBUG}/**"
+                    artifacts: "result-sbom-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -366,14 +621,14 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-vulnxscan-${X86_64_NX_DEBUG}'
+                  sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#vulnxscan -- \
-                    --out result-vulnxscan-${X86_64_NX_DEBUG}/vulns.csv \
-                    .#packages.${X86_64_NX_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
+                    --out result-vulnxscan-${GHAF_TARGET}/vulns.csv \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-vulnxscan-${X86_64_NX_DEBUG}/**"
+                    artifacts: "result-vulnxscan-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -381,14 +636,49 @@ pipeline {
         }
 
         stage("X86_64_DEBUG") {
+          environment {
+            GHAF_TARGET='x86_64-linux.generic-x86_64-debug'
+          }
           stages {
             stage("Build X86_64_DEBUG") {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'nix build -L .#packages.${X86_64_DEBUG} -o result-${X86_64_DEBUG}'
+                  sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
+                  sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
+                  sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-${X86_64_DEBUG}/**"
+                    artifacts: "result-${GHAF_TARGET}/**"
+                }
+              }
+            }
+            stage("Generate provenance for X86_64_DEBUG") {
+              agent any
+              steps {
+                ws('workspace/ghaf-pipeline/ghaf') {
+                  sh '''
+                    PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
+                    PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
+                    PROVENANCE_EXTERNAL_PARAMS=$(jq -n \
+                      --arg repository $GHAF_URL \
+                      --arg ref $GHAF_REF \
+                      --arg target $GHAF_TARGET \
+                      '$ARGS.named')
+                    PROVENANCE_INTERNAL_PARAMS=$(jq -n \
+                      --arg agent $NODE_NAME \
+                      --arg ws $WORKSPACE \
+                      '$ARGS.named')
+                    export PROVENANCE_TIMESTAMP_BEGIN
+                    export PROVENANCE_TIMESTAMP_FINISHED
+                    export PROVENANCE_EXTERNAL_PARAMS
+                    export PROVENANCE_INTERNAL_PARAMS
+                    mkdir -p result-provenance-${GHAF_TARGET}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#provenance -- \
+                      .#packages.${GHAF_TARGET} --recursive \
+                      --out result-provenance-${GHAF_TARGET}/provenance.json
+                  '''
+                  archiveArtifacts allowEmptyArchive: true,
+                    artifacts: "result-provenance-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -396,16 +686,16 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-sbom-${X86_64_DEBUG}'
+                  sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#sbomnix -- \
-                    --csv result-sbom-${X86_64_DEBUG}/sbom.csv \
-                    --cdx result-sbom-${X86_64_DEBUG}/sbom.cdx.json \
-                    --spdx result-sbom-${X86_64_DEBUG}/sbom.spdx.json \
-                    .#packages.${X86_64_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
+                    --csv result-sbom-${GHAF_TARGET}/sbom.csv \
+                    --cdx result-sbom-${GHAF_TARGET}/sbom.cdx.json \
+                    --spdx result-sbom-${GHAF_TARGET}/sbom.spdx.json \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-sbom-${X86_64_DEBUG}/**"
+                    artifacts: "result-sbom-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -413,14 +703,14 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-vulnxscan-${X86_64_DEBUG}'
+                  sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#vulnxscan -- \
-                    --out result-vulnxscan-${X86_64_DEBUG}/vulns.csv \
-                    .#packages.${X86_64_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
+                    --out result-vulnxscan-${GHAF_TARGET}/vulns.csv \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-vulnxscan-${X86_64_DEBUG}/**"
+                    artifacts: "result-vulnxscan-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -428,14 +718,49 @@ pipeline {
         }
 
         stage("X86_64_GEN11_DEBUG") {
+          environment {
+            GHAF_TARGET='x86_64-linux.lenovo-x1-carbon-gen11-debug'
+          }
           stages {
             stage("Build X86_64_GEN11_DEBUG") {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'nix build -L .#packages.${X86_64_GEN11_DEBUG} -o result-${X86_64_GEN11_DEBUG}'
+                  sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
+                  sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
+                  sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-${X86_64_GEN11_DEBUG}/**"
+                    artifacts: "result-${GHAF_TARGET}/**"
+                }
+              }
+            }
+            stage("Generate provenance for X86_64_GEN11_DEBUG") {
+              agent any
+              steps {
+                ws('workspace/ghaf-pipeline/ghaf') {
+                  sh '''
+                    PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
+                    PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
+                    PROVENANCE_EXTERNAL_PARAMS=$(jq -n \
+                      --arg repository $GHAF_URL \
+                      --arg ref $GHAF_REF \
+                      --arg target $GHAF_TARGET \
+                      '$ARGS.named')
+                    PROVENANCE_INTERNAL_PARAMS=$(jq -n \
+                      --arg agent $NODE_NAME \
+                      --arg ws $WORKSPACE \
+                      '$ARGS.named')
+                    export PROVENANCE_TIMESTAMP_BEGIN
+                    export PROVENANCE_TIMESTAMP_FINISHED
+                    export PROVENANCE_EXTERNAL_PARAMS
+                    export PROVENANCE_INTERNAL_PARAMS
+                    mkdir -p result-provenance-${GHAF_TARGET}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#provenance -- \
+                      .#packages.${GHAF_TARGET} --recursive \
+                      --out result-provenance-${GHAF_TARGET}/provenance.json
+                  '''
+                  archiveArtifacts allowEmptyArchive: true,
+                    artifacts: "result-provenance-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -443,16 +768,16 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-sbom-${X86_64_GEN11_DEBUG}'
+                  sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#sbomnix -- \
-                    --csv result-sbom-${X86_64_GEN11_DEBUG}/sbom.csv \
-                    --cdx result-sbom-${X86_64_GEN11_DEBUG}/sbom.cdx.json \
-                    --spdx result-sbom-${X86_64_GEN11_DEBUG}/sbom.spdx.json \
-                    .#packages.${X86_64_GEN11_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
+                    --csv result-sbom-${GHAF_TARGET}/sbom.csv \
+                    --cdx result-sbom-${GHAF_TARGET}/sbom.cdx.json \
+                    --spdx result-sbom-${GHAF_TARGET}/sbom.spdx.json \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-sbom-${X86_64_GEN11_DEBUG}/**"
+                    artifacts: "result-sbom-${GHAF_TARGET}/**"
                 }
               }
             }
@@ -460,61 +785,96 @@ pipeline {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-vulnxscan-${X86_64_GEN11_DEBUG}'
+                  sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#vulnxscan -- \
-                    --out result-vulnxscan-${X86_64_GEN11_DEBUG}/vulns.csv \
-                    .#packages.${X86_64_GEN11_DEBUG}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
+                    --out result-vulnxscan-${GHAF_TARGET}/vulns.csv \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-vulnxscan-${X86_64_GEN11_DEBUG}/**"
+                    artifacts: "result-vulnxscan-${GHAF_TARGET}/**"
                 }
               }
             }
           }
         }
 
-        stage("X86_64_DOC") {
+        stage("X86_64_GEN11_RELEASE") {
+          environment {
+            GHAF_TARGET='x86_64-linux.lenovo-x1-carbon-gen11-release'
+          }
           stages {
-            stage("Build X86_64_DOC") {
+            stage("Build X86_64_GEN11_RELEASE") {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'nix build -L .#packages.${X86_64_DOC} -o result-${X86_64_DOC}'
+                  sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
+                  sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
+                  sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-${X86_64_DOC}/**"
+                    artifacts: "result-${GHAF_TARGET}/**"
                 }
               }
             }
-            stage("Generate SBOM for X86_64_DOC") {
+            stage("Generate provenance for X86_64_GEN11_RELEASE") {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-sbom-${X86_64_DOC}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#sbomnix -- \
-                    --csv result-sbom-${X86_64_DOC}/sbom.csv \
-                    --cdx result-sbom-${X86_64_DOC}/sbom.cdx.json \
-                    --spdx result-sbom-${X86_64_DOC}/sbom.spdx.json \
-                    .#packages.${X86_64_DOC}
+                    PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
+                    PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
+                    PROVENANCE_EXTERNAL_PARAMS=$(jq -n \
+                      --arg repository $GHAF_URL \
+                      --arg ref $GHAF_REF \
+                      --arg target $GHAF_TARGET \
+                      '$ARGS.named')
+                    PROVENANCE_INTERNAL_PARAMS=$(jq -n \
+                      --arg agent $NODE_NAME \
+                      --arg ws $WORKSPACE \
+                      '$ARGS.named')
+                    export PROVENANCE_TIMESTAMP_BEGIN
+                    export PROVENANCE_TIMESTAMP_FINISHED
+                    export PROVENANCE_EXTERNAL_PARAMS
+                    export PROVENANCE_INTERNAL_PARAMS
+                    mkdir -p result-provenance-${GHAF_TARGET}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#provenance -- \
+                      .#packages.${GHAF_TARGET} --recursive \
+                      --out result-provenance-${GHAF_TARGET}/provenance.json
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-sbom-${X86_64_DOC}/**"
+                    artifacts: "result-provenance-${GHAF_TARGET}/**"
                 }
               }
             }
-            stage("Run vulnerability scan for X86_64_DOC") {
+            stage("Generate SBOM for X86_64_GEN11_RELEASE") {
               agent any
               steps {
                 ws('workspace/ghaf-pipeline/ghaf') {
-                  sh 'mkdir -p result-vulnxscan-${X86_64_DOC}'
+                  sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
-                    nix run github:tiiuae/sbomnix/${SBOMNIX}#vulnxscan -- \
-                    --out result-vulnxscan-${X86_64_DOC}/vulns.csv \
-                    .#packages.${X86_64_DOC}
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
+                    --csv result-sbom-${GHAF_TARGET}/sbom.csv \
+                    --cdx result-sbom-${GHAF_TARGET}/sbom.cdx.json \
+                    --spdx result-sbom-${GHAF_TARGET}/sbom.spdx.json \
+                    .#packages.${GHAF_TARGET}
                   '''
                   archiveArtifacts allowEmptyArchive: true,
-                    artifacts: "result-vulnxscan-${X86_64_DOC}/**"
+                    artifacts: "result-sbom-${GHAF_TARGET}/**"
+                }
+              }
+            }
+            stage("Run vulnerability scan for X86_64_GEN11_RELEASE") {
+              agent any
+              steps {
+                ws('workspace/ghaf-pipeline/ghaf') {
+                  sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
+                  sh '''
+                    nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
+                    --out result-vulnxscan-${GHAF_TARGET}/vulns.csv \
+                    .#packages.${GHAF_TARGET}
+                  '''
+                  archiveArtifacts allowEmptyArchive: true,
+                    artifacts: "result-vulnxscan-${GHAF_TARGET}/**"
                 }
               }
             }
