@@ -33,7 +33,9 @@ def processSBOMs(builds) {
         def buildConfig = builds[i]
         def buildTarget = builds[i + 1]
         def buildSBOMName = builds[i + 2]
-        sh "nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.${buildConfig} --csv ${buildSBOMName}.csv --cdx ${buildSBOMName}cdx.json --spdx ${buildSBOMName}.spdx.json"
+        if (buildSBOMName != "NA") {
+          sh "nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.${buildConfig} --csv ${buildSBOMName}.csv --cdx ${buildSBOMName}cdx.json --spdx ${buildSBOMName}.spdx.json"
+        }
     }
 }
 def processProvenances(builds) {
@@ -42,7 +44,9 @@ def processProvenances(builds) {
         def buildTarget = builds[i + 1]
         def buildSBOMName = builds[i + 2]
         def buildProvenanceName = builds[i + 3]
-        sh "nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#provenance -- .#packages.${buildConfig} --recursive --out ${buildProvenanceName}.json"
+        if (buildProvenanceName != "NA") {
+          sh "nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#provenance -- .#packages.${buildConfig} --recursive --out ${buildProvenanceName}.json"
+        }
     }
 }
 
