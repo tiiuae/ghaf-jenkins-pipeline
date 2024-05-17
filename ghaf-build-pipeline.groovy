@@ -55,7 +55,6 @@ pipeline {
         dir('ghaf') {
           sh 'nix build -L .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug -o result-aarch64-jetson-orin-agx-debug'
           sh 'nix build -L .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug  -o result-aarch64-jetson-orin-nx-debug'
-          sh 'nix build -L .#packages.aarch64-linux.imx8qm-mek-debug             -o result-aarch64-imx8qm-mek-debug'
           sh 'nix build -L .#packages.aarch64-linux.doc                          -o result-aarch64-doc'
         }
         script {
@@ -73,7 +72,7 @@ pipeline {
         PROVENANCE_TIMESTAMP_FINISHED = "${env.ts_build_finished}"
         PROVENANCE_EXTERNAL_PARAMS = sh(
           returnStdout: true,
-          script: 'jq -n --arg flakeURI $URL --arg flakeBranch $BRANCH \'$ARGS.named\'' 
+          script: 'jq -n --arg flakeURI $URL --arg flakeBranch $BRANCH \'$ARGS.named\''
         )
         PROVENANCE_INTERNAL_PARAMS = sh(
           returnStdout: true,
@@ -97,7 +96,6 @@ pipeline {
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#provenance -- .#packages.riscv64-linux.microchip-icicle-kit-debug              --recursive --out result-provenance-microchip-icicle-kit-debug.json'
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#provenance -- .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug            --recursive --out result-provenance-aarch64-jetson-orin-agx-debug.json'
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#provenance -- .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug             --recursive --out result-provenance-aarch64-jetson-orin-nx-debug.json'
-          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#provenance -- .#packages.aarch64-linux.imx8qm-mek-debug                        --recursive --out result-provenance-aarch64-imx8qm-mek-debug.json'
         }
       }
     }
@@ -111,7 +109,6 @@ pipeline {
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.riscv64-linux.microchip-icicle-kit-debug --csv result-microchip-icicle-kit-debug.csv --cdx result-microchip-icicle-kit-debug.cdx.json --spdx result-microchip-icicle-kit-debug.spdx.json'
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug --csv result-aarch64-jetson-orin-agx-debug.csv --cdx result-aarch64-jetson-orin-agx-debug.cdx.json --spdx result-aarch64-jetson-orin-agx-debug.spdx.json'
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug  --csv result-aarch64-jetson-orin-nx-debug.csv --cdx esult-aarch64-jetson-orin-nx-debug.cdx.json --spdx result-aarch64-jetson-orin-nx-debug.json'
-          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#sbomnix -- .#packages.aarch64-linux.imx8qm-mek-debug   --csv result-aarch64-imx8qm-mek-debug.csv --cdx result-aarch64-imx8qm-mek-debug.cdx.json --spdx result-aarch64-imx8qm-mek-debug.spdx.json'
         }
       }
     }
@@ -125,7 +122,6 @@ pipeline {
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.riscv64-linux.microchip-icicle-kit-debug --out result-vulns-microchip-icicle-kit-debug.csv'
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug --out result-vulns-aarch64-jetson-orin-agx-debug.csv'
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug --out result-vulns-aarch64-jetson-orin-nx-debug.csv'
-          sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.aarch64-linux.imx8qm-mek-debug --out result-vulns-aarch64-imx8qm-mek-debug.csv'
         }
       }
     }
