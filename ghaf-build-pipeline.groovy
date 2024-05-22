@@ -1,8 +1,9 @@
 #!/usr/bin/env groovy
 
-// SPDX-FileCopyrightText: 2024 Technology Innovation Institute (TII)
-//
-// SPDX-License-Identifier: Apache-2.0
+/*
+SPDX-FileCopyrightText: 2022-2024 TII (SSRC) and the Ghaf contributors
+SPDX-License-Identifier: Apache-2.0
+*/
 
 pipeline {
   agent any
