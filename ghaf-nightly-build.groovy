@@ -123,6 +123,13 @@ pipeline {
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.riscv64-linux.microchip-icicle-kit-debug --out result-vulns-microchip-icicle-kit-debug.csv'
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug --out result-vulns-aarch64-jetson-orin-agx-debug.csv'
           sh 'nix run github:tiiuae/sbomnix/a1f0f88d719687acedd989899ecd7fafab42394c#vulnxscan -- .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug --out result-vulns-aarch64-jetson-orin-nx-debug.csv'
+          sh 'csvcut result-vulns-jetson-orin-agx-debug.csv --not-columns sortcol | csvlook -I > result-vulns-jetson-orin-agx-debug.txt'
+          sh 'csvcut result-vulns-jetson-orin-nx-debug.csv --not-columns sortcol | csvlook -I > result-vulns-jetson-orin-nx-debug.txt'
+          sh 'csvcut result-vulns-generic-x86_64-debug.csv --not-columns sortcol | csvlook -I > result-vulns-generic-x86_64-debug.txt'
+          sh 'csvcut result-vulns-lenovo-x1-carbon-gen11-debug.csv --not-columns sortcol | csvlook -I > result-vulns-lenovo-x1-carbon-gen11-debug.txt'
+          sh 'csvcut result-vulns-microchip-icicle-kit-debug.csv --not-columns sortcol | csvlook -I > result-vulns-microchip-icicle-kit-debug.txt'
+          sh 'csvcut result-vulns-aarch64-jetson-orin-agx-debug.csv --not-columns sortcol | csvlook -I > result-vulns-aarch64-jetson-orin-agx-debug.txt'
+          sh 'csvcut result-vulns-aarch64-jetson-orin-nx-debug.csv --not-columns sortcol | csvlook -I > result-vulns-aarch64-jetson-orin-nx-debug.txt'
         }
       }
     }
