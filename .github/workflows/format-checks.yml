@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2022-2024 TII (SSRC) and the Ghaf contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Format-checks
+
+# This workflow gets triggered on push or pull request events to the main branch
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  groovy-lint:
+    # This job runs on an Ubuntu 22.04 runner
+    runs-on: ubuntu-22.04
+    steps:
+      # Checks-out our repository under $GITHUB_WORKSPACE
+      - uses: actions/checkout@v3
+      # Sets up a Node.js environment with the specified version
+      - name: Set up Node.js environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.13.1'
+      - name: Install npm-groovy-lint
+        run: npm install -g npm-groovy-lint
+      - name: Fail if there are any errors
+        run: npm-groovy-lint --failon error .
