@@ -140,9 +140,7 @@ pipeline {
   }
   post {
     always {
-      archiveArtifacts allowEmptyArchive: true, artifacts: "ghaf/result-*"
-      archiveArtifacts allowEmptyArchive: true, artifacts: "ghaf/result-*/**"
-      archiveArtifacts allowEmptyArchive: true, artifacts: "ghaf/result-aarch64*/**"
+      sh "RCLONE_WEBDAV_UNIX_SOCKET_PATH=/run/rclone-jenkins-artifacts.sock RCLONE_WEBDAV_URL=http://localhost rclone sync -L 'ghaf/' :webdav:/${env.BUILD_TAG}/ --include '/result-*' --include '/result-*/**'"
     }
   }
 }
