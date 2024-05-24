@@ -66,28 +66,16 @@ pipeline {
     }
     stage('Provenance') {
       environment {
-        // TODO: Write our own buildtype and builder id documents
-        PROVENANCE_BUILD_TYPE = "https://docs.cimon.build/provenance/buildtypes/jenkins/v1"
-        PROVENANCE_BUILDER_ID = "https://github.com/tiiuae/ghaf-infra/tree/main/terraform"
-        PROVENANCE_INVOCATION_ID = "${env.JOB_NAME}/${env.BUILD_ID}"
+        PROVENANCE_BUILD_TYPE = "https://github.com/tiiuae/ghaf-infra/blob/c8670cf56a7e891545493891928fac96160a49ea/slsa/v1.0/L1/buildtype.md"
+        PROVENANCE_BUILDER_ID = "${env.JENKINS_URL}"
+        PROVENANCE_INVOCATION_ID = "${env.BUILD_URL}"
         PROVENANCE_TIMESTAMP_BEGIN = "${env.ts_build_begin}"
         PROVENANCE_TIMESTAMP_FINISHED = "${env.ts_build_finished}"
         PROVENANCE_EXTERNAL_PARAMS = sh(
           returnStdout: true,
-          script: 'jq -n --arg flakeURI $URL --arg flakeBranch $BRANCH \'$ARGS.named\''
-        )
-        PROVENANCE_INTERNAL_PARAMS = sh(
-          returnStdout: true,
-          // returns the specified environment varibles in json format
-          script: """
-            jq -n env | jq "{ \
-              JOB_NAME, \
-              GIT_URL, \
-              GIT_BRANCH, \
-              GIT_COMMIT, \
-            }"
-          """
-        )
+          script: "./provenance-external-params.sh"
+        ).trim()
+        PROVENANCE_INTERNAL_PARAMS = ""
       }
       steps {
         dir('ghaf') {
