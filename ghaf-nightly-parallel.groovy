@@ -10,7 +10,7 @@ DEFAULT_REF = 'main'
 DEFAULT_SBOMNIX = 'a1f0f88d719687acedd989899ecd7fafab42394c'
 
 pipeline {
-  agent any
+  agent none
   parameters {
     string description: 'Repository URL',
       name: 'URL',
@@ -38,6 +38,7 @@ pipeline {
     PROVENANCE_BUILD_TYPE = 'https://docs.cimon.build/provenance/buildtypes/jenkins/v1'
     PROVENANCE_BUILDER_ID = "$JENKINS_URL"
     PROVENANCE_INVOCATION_ID = "$BUILD_URL"
+    GHAF_PATH = "$JENKINS_HOME/workspace/nightly-ghaf"
 
     // Use default values if parameter values are not yet defined
     // like the case on the very first run
@@ -49,7 +50,7 @@ pipeline {
     stage('Checkout') {
       agent any
       steps {
-        ws('workspace/ghaf-pipeline/ghaf') {
+        dir(GHAF_PATH) {
           checkout scmGit(
             branches: [[name: params.BRANCH]],
             extensions: [cleanBeforeCheckout()],
@@ -62,14 +63,14 @@ pipeline {
       parallel {
 
         stage("AARCH64_AGX_DEBUG") {
+          agent any
           environment {
             GHAF_TARGET='aarch64-linux.nvidia-jetson-orin-agx-debug'
           }
           stages {
             stage("Build AARCH64_AGX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
                   sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
                   sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
@@ -79,9 +80,8 @@ pipeline {
               }
             }
             stage("Generate provenance for AARCH64_AGX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh '''
                     PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
                     PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
@@ -109,9 +109,8 @@ pipeline {
               }
             }
             stage("Generate SBOM for AARCH64_AGX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
@@ -126,9 +125,8 @@ pipeline {
               }
             }
             stage("Run vulnerability scan for AARCH64_AGX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
@@ -144,14 +142,14 @@ pipeline {
         }
 
         stage("AARCH64_NX_DEBUG") {
+          agent any
           environment {
             GHAF_TARGET='aarch64-linux.nvidia-jetson-orin-nx-debug'
           }
           stages {
             stage("Build AARCH64_NX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
                   sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
                   sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
@@ -161,9 +159,8 @@ pipeline {
               }
             }
             stage("Generate provenance for AARCH64_NX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh '''
                     PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
                     PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
@@ -191,9 +188,8 @@ pipeline {
               }
             }
             stage("Generate SBOM for AARCH64_NX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
@@ -208,9 +204,8 @@ pipeline {
               }
             }
             stage("Run vulnerability scan for AARCH64_NX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
@@ -226,14 +221,14 @@ pipeline {
         }
 
         stage("AARCH64_NX_RELEASE") {
+          agent any
           environment {
             GHAF_TARGET='aarch64-linux.nvidia-jetson-orin-nx-release'
           }
           stages {
             stage("Build AARCH64_NX_RELEASE") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
                   sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
                   sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
@@ -243,9 +238,8 @@ pipeline {
               }
             }
             stage("Generate provenance for AARCH64_NX_RELEASE") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh '''
                     PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
                     PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
@@ -273,9 +267,8 @@ pipeline {
               }
             }
             stage("Generate SBOM for AARCH64_NX_RELEASE") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
@@ -290,9 +283,8 @@ pipeline {
               }
             }
             stage("Run vulnerability scan for AARCH64_NX_RELEASE") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
@@ -308,14 +300,14 @@ pipeline {
         }
 
         stage("RISCV64_ICICLE_KIT") {
+          agent any
           environment {
             GHAF_TARGET='riscv64-linux.microchip-icicle-kit-debug'
           }
           stages {
             stage("Build RISCV64_ICICLE_KIT") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
                   sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
                   sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
@@ -325,9 +317,8 @@ pipeline {
               }
             }
             stage("Generate provenance for RISCV64_ICICLE_KIT") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh '''
                     PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
                     PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
@@ -355,9 +346,8 @@ pipeline {
               }
             }
             stage("Generate SBOM for RISCV64_ICICLE_KIT") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
@@ -372,9 +362,8 @@ pipeline {
               }
             }
             stage("Run vulnerability scan for RISCV64_ICICLE_KIT") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
@@ -390,14 +379,14 @@ pipeline {
         }
 
         stage("X86_64_AGX_DEBUG") {
+          agent any
           environment {
             GHAF_TARGET='x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64'
           }
           stages {
             stage("Build X86_64_AGX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
                   sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
                   sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
@@ -407,9 +396,8 @@ pipeline {
               }
             }
             stage("Generate provenance for X86_64_AGX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh '''
                     PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
                     PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
@@ -437,9 +425,8 @@ pipeline {
               }
             }
             stage("Generate SBOM for X86_64_AGX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
@@ -454,9 +441,8 @@ pipeline {
               }
             }
             stage("Run vulnerability scan for X86_64_AGX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
@@ -472,14 +458,14 @@ pipeline {
         }
 
         stage("X86_64_NX_DEBUG") {
+          agent any
           environment {
             GHAF_TARGET='x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64'
           }
           stages {
             stage("Build X86_64_NX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
                   sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
                   sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
@@ -489,9 +475,8 @@ pipeline {
               }
             }
             stage("Generate provenance for X86_64_NX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh '''
                     PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
                     PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
@@ -519,9 +504,8 @@ pipeline {
               }
             }
             stage("Generate SBOM for X86_64_NX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
@@ -536,9 +520,8 @@ pipeline {
               }
             }
             stage("Run vulnerability scan for X86_64_NX_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
@@ -554,14 +537,14 @@ pipeline {
         }
 
         stage("X86_64_DEBUG") {
+          agent any
           environment {
             GHAF_TARGET='x86_64-linux.generic-x86_64-debug'
           }
           stages {
             stage("Build X86_64_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
                   sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
                   sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
@@ -571,9 +554,8 @@ pipeline {
               }
             }
             stage("Generate provenance for X86_64_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh '''
                     PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
                     PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
@@ -601,9 +583,8 @@ pipeline {
               }
             }
             stage("Generate SBOM for X86_64_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
@@ -618,9 +599,8 @@ pipeline {
               }
             }
             stage("Run vulnerability scan for X86_64_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
@@ -636,14 +616,14 @@ pipeline {
         }
 
         stage("X86_64_GEN11_DEBUG") {
+          agent any
           environment {
             GHAF_TARGET='x86_64-linux.lenovo-x1-carbon-gen11-debug'
           }
           stages {
             stage("Build X86_64_GEN11_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
                   sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
                   sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
@@ -653,9 +633,8 @@ pipeline {
               }
             }
             stage("Generate provenance for X86_64_GEN11_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh '''
                     PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
                     PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
@@ -683,9 +662,8 @@ pipeline {
               }
             }
             stage("Generate SBOM for X86_64_GEN11_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
@@ -700,9 +678,8 @@ pipeline {
               }
             }
             stage("Run vulnerability scan for X86_64_GEN11_DEBUG") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
@@ -718,14 +695,14 @@ pipeline {
         }
 
         stage("X86_64_GEN11_RELEASE") {
+          agent any
           environment {
             GHAF_TARGET='x86_64-linux.lenovo-x1-carbon-gen11-release'
           }
           stages {
             stage("Build X86_64_GEN11_RELEASE") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'date +%s > TS_BEGIN_${GHAF_TARGET}'
                   sh 'nix build -L .#packages.${GHAF_TARGET} -o result-${GHAF_TARGET}'
                   sh 'date +%s > TS_FINISHED_${GHAF_TARGET}'
@@ -735,9 +712,8 @@ pipeline {
               }
             }
             stage("Generate provenance for X86_64_GEN11_RELEASE") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh '''
                     PROVENANCE_TIMESTAMP_BEGIN=$(<TS_BEGIN_${GHAF_TARGET})
                     PROVENANCE_TIMESTAMP_FINISHED=$(<TS_FINISHED_${GHAF_TARGET})
@@ -765,9 +741,8 @@ pipeline {
               }
             }
             stage("Generate SBOM for X86_64_GEN11_RELEASE") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-sbom-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#sbomnix -- \
@@ -782,9 +757,8 @@ pipeline {
               }
             }
             stage("Run vulnerability scan for X86_64_GEN11_RELEASE") {
-              agent any
               steps {
-                ws('workspace/ghaf-pipeline/ghaf') {
+                dir(GHAF_PATH) {
                   sh 'mkdir -p result-vulnxscan-${GHAF_TARGET}'
                   sh '''
                     nix run github:tiiuae/sbomnix/${SBOMNIX_REF}#vulnxscan -- \
