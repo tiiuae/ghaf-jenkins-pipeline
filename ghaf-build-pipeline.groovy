@@ -73,7 +73,9 @@ pipeline {
         PROVENANCE_TIMESTAMP_FINISHED = "${env.ts_build_finished}"
         PROVENANCE_EXTERNAL_PARAMS = sh(
           returnStdout: true,
-          script: "./provenance-external-params.sh"
+          // TODO: Target name should be populated from jenkins, but currently that's not possible 
+          // since the environment is only generated once instead of being unique for every target
+          script: "./provenance-external-params.sh TARGET"
         ).trim()
         PROVENANCE_INTERNAL_PARAMS = ""
       }
@@ -94,13 +96,13 @@ pipeline {
       steps {
         dir('ghaf') {
           sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64 --csv result-sbom-crosscompile-jetson-orin-agx-debug.csv --cdx result-sbom-crosscompile-jetson-orin-agx-debug.cdx.json --spdx result-sbom-crosscompile-jetson-orin-agx-debug.spdx.json'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64 --csv result-sbom-crosscompile-jetson-orin-nx-debug.csv --cdx result-sbom-crosscompile-jetson-orin-nx-debug.cdx.json --spdx result-sbom-crosscompile-jetson-orin-nx-debug.spdx.json'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.x86_64-linux.generic-x86_64-debug --csv result-sbom-generic-x86_64-debug.csv --cdx result-sbom-generic-x86_64-debug.cdx.json --spdx result-sbom-generic-x86_64-debug.spdx.json'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug --csv result-sbom-lenovo-x1-carbon-gen11-debug.csv --cdx result-sbom-lenovo-x1-carbon-gen11-debug.cdx.json --spdx result-sbom-lenovo-x1-carbon-gen11-debug.spdx.json'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.riscv64-linux.microchip-icicle-kit-debug --csv result-sbom-microchip-icicle-kit-debug.csv --cdx result-sbom-microchip-icicle-kit-debug.cdx.json --spdx result-sbom-microchip-icicle-kit-debug.spdx.json'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.aarch64-linux.nxp-imx8mp-evk-debug --csv result-sbom-nxp-imx8mp-evk-debug.csv --cdx result-sbom-nxp-imx8mp-evk-debug.cdx.json --spdx result-sbom-nxp-imx8mp-evk-debug.spdx.json'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug --csv result-sbom-aarch64-jetson-orin-agx-debug.csv --cdx result-sbom-aarch64-jetson-orin-agx-debug.cdx.json --spdx result-sbom-aarch64-jetson-orin-agx-debug.spdx.json'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug --csv result-sbom-aarch64-jetson-orin-nx-debug.csv --cdx result-sbom-aarch64-jetson-orin-nx-debug.cdx.json --spdx result-sbom-aarch64-jetson-orin-nx-debug.spdx.json'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64  --csv result-sbom-crosscompile-jetson-orin-nx-debug.csv  --cdx result-sbom-crosscompile-jetson-orin-nx-debug.cdx.json  --spdx result-sbom-crosscompile-jetson-orin-nx-debug.spdx.json'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.x86_64-linux.generic-x86_64-debug                     --csv result-sbom-generic-x86_64-debug.csv               --cdx result-sbom-generic-x86_64-debug.cdx.json               --spdx result-sbom-generic-x86_64-debug.spdx.json'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug             --csv result-sbom-lenovo-x1-carbon-gen11-debug.csv       --cdx result-sbom-lenovo-x1-carbon-gen11-debug.cdx.json       --spdx result-sbom-lenovo-x1-carbon-gen11-debug.spdx.json'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.riscv64-linux.microchip-icicle-kit-debug              --csv result-sbom-microchip-icicle-kit-debug.csv         --cdx result-sbom-microchip-icicle-kit-debug.cdx.json         --spdx result-sbom-microchip-icicle-kit-debug.spdx.json'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.aarch64-linux.nxp-imx8mp-evk-debug                    --csv result-sbom-nxp-imx8mp-evk-debug.csv               --cdx result-sbom-nxp-imx8mp-evk-debug.cdx.json               --spdx result-sbom-nxp-imx8mp-evk-debug.spdx.json'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug            --csv result-sbom-aarch64-jetson-orin-agx-debug.csv      --cdx result-sbom-aarch64-jetson-orin-agx-debug.cdx.json      --spdx result-sbom-aarch64-jetson-orin-agx-debug.spdx.json'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#sbomnix -- .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug             --csv result-sbom-aarch64-jetson-orin-nx-debug.csv       --cdx result-sbom-aarch64-jetson-orin-nx-debug.cdx.json       --spdx result-sbom-aarch64-jetson-orin-nx-debug.spdx.json'
         }
       }
     }
@@ -108,13 +110,13 @@ pipeline {
       steps {
         dir('ghaf') {
           sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64 --out result-vulns-jetson-orin-agx-debug.csv'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64 --out result-vulns-jetson-orin-nx-debug.csv'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.x86_64-linux.generic-x86_64-debug --out result-vulns-generic-x86_64-debug.csv'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug --out result-vulns-lenovo-x1-carbon-gen11-debug.csv'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.riscv64-linux.microchip-icicle-kit-debug --out result-vulns-microchip-icicle-kit-debug.csv'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.aarch64-linux.nxp-imx8mp-evk-debug --out result-vulns-nxp-imx8mp-evk-debug.csv'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug --out result-vulns-aarch64-jetson-orin-agx-debug.csv'
-          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug --out result-vulns-aarch64-jetson-orin-nx-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64  --out result-vulns-jetson-orin-nx-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.x86_64-linux.generic-x86_64-debug                     --out result-vulns-generic-x86_64-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug             --out result-vulns-lenovo-x1-carbon-gen11-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.riscv64-linux.microchip-icicle-kit-debug              --out result-vulns-microchip-icicle-kit-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.aarch64-linux.nxp-imx8mp-evk-debug                    --out result-vulns-nxp-imx8mp-evk-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.aarch64-linux.nvidia-jetson-orin-agx-debug            --out result-vulns-aarch64-jetson-orin-agx-debug.csv'
+          sh 'nix run github:tiiuae/sbomnix/0b19e055d1f5124fd67d567db342ef4dd21da6f2#vulnxscan -- .#packages.aarch64-linux.nvidia-jetson-orin-nx-debug             --out result-vulns-aarch64-jetson-orin-nx-debug.csv'
         }
       }
     }

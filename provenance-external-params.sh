@@ -4,11 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # details of the target being built.
-# TODO: Target name should be populated from jenkins, but currently that's
-# not possible since the environment is only generated once instead of being
-# unique for every target
 target=$(jq -n \
-    --arg name "?" \
+    --arg name "$1" \
     --arg repository \
     "$URL" --arg ref \
     "$BRANCH" \
