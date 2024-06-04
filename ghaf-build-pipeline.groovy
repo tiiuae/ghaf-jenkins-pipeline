@@ -33,6 +33,9 @@ pipeline {
             extensions: [cleanBeforeCheckout()],
             userRemoteConfigs: [[url: params.URL]]
           )
+          script {
+            env.TARGET_COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+          }
         }
       }
     }
