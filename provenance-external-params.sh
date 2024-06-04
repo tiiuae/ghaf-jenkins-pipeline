@@ -6,9 +6,8 @@
 # details of the target being built.
 target=$(jq -n \
     --arg name "$1" \
-    --arg repository \
-    "$URL" --arg ref \
-    "$BRANCH" \
+    --arg repository "$URL" \
+    --arg ref "$TARGET_COMMIT" \
     '$ARGS.named')
 
 # details of the workflow/pipeline repository
