@@ -1,29 +1,18 @@
 #!/usr/bin/env groovy
 
-// SPDX-FileCopyrightText: 2024 Technology Innovation Institute (TII)
-//
+// SPDX-FileCopyrightText: 2022-2024 TII (SSRC) and the Ghaf contributors
 // SPDX-License-Identifier: Apache-2.0
 
 ////////////////////////////////////////////////////////////////////////////////
 
-def nix_build(flakeref) {
-  try {
-    sh "nix build ${flakeref}"
-  } catch (InterruptedException e) {
-    // Do not continue pipeline execution on abort.
-    throw e
-  } catch (Exception e) {
-    // Otherwise, if the command fails, mark the current step unstable and set
-    // the final build result to failed, but continue the pipeline execution.
-    unstable("FAILED: ${flakeref}")
-    currentBuild.result = "FAILURE"
-  }
-}
+def REPO_URL = 'https://github.com/tiiuae/ghaf/'
+def WORKDIR  = 'ghaf'
 
-////////////////////////////////////////////////////////////////////////////////
+// Utils module will be loaded in the first pipeline stage
+def utils = null
 
 properties([
-  githubProjectProperty(displayName: '', projectUrlStr: 'https://github.com/tiiuae/ghaf/'),
+  githubProjectProperty(displayName: '', projectUrlStr: REPO_URL),
   // The following options are documented in:
   // https://www.jenkins.io/doc/pipeline/steps/params/pipelinetriggers/
   // Following config requires having github token configured in:
@@ -60,7 +49,7 @@ pipeline {
   agent { label 'built-in' }
   options {
     timestamps ()
-    buildDiscarder(logRotator(artifactNumToKeepStr: '5', numToKeepStr: '100'))
+    buildDiscarder(logRotator(numToKeepStr: '100'))
   }
   stages {
     stage('Checkenv') {
@@ -75,17 +64,18 @@ pipeline {
         sh 'if [ -z "$BUILD_NUMBER" ]; then exit 1; fi'
         // Fail if PR was closed (but not merged)
         sh 'if [ "$GITHUB_PR_STATE" = "CLOSED" ]; then exit 1; fi'
+        script { utils = load "utils.groovy" }
       }
     }
     stage('Checkout') {
       steps {
-        dir('pr') {
+        dir(WORKDIR) {
           // References:
           // https://www.jenkins.io/doc/pipeline/steps/params/scmgit/#scmgit
           // https://github.com/KostyaSha/github-integration-plugin/blob/master/docs/Configuration.adoc
           checkout scmGit(
             userRemoteConfigs: [[
-              url: 'https://github.com/tiiuae/ghaf.git',
+              url: REPO_URL,
               name: 'pr_origin',
               // Below, we set two git remotes: 'pr_origin' and 'origin'
               // We use '/merge' in pr_origin to build the PR as if it was
@@ -129,21 +119,25 @@ pipeline {
     }
     stage('Build x86_64') {
       steps {
-        dir('pr') {
-          nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64')
-          nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64')
-          nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug')
-          nix_build('.#packages.riscv64-linux.microchip-icicle-kit-debug')
-          nix_build('.#packages.x86_64-linux.doc')
+        dir(WORKDIR) {
+          script {
+            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64')
+            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64')
+            utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug')
+            utils.nix_build('.#packages.riscv64-linux.microchip-icicle-kit-debug')
+            utils.nix_build('.#packages.x86_64-linux.doc')
+          }
         }
       }
     }
     stage('Build aarch64') {
       steps {
-        dir('pr') {
-          nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug')
-          nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug')
-          nix_build('.#packages.aarch64-linux.doc')
+        dir(WORKDIR) {
+          script {
+            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug')
+            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug')
+            utils.nix_build('.#packages.aarch64-linux.doc')
+          }
         }
       }
     }
