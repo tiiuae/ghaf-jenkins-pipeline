@@ -117,26 +117,38 @@ pipeline {
         }
       }
     }
-    stage('Build x86_64') {
-      steps {
-        dir(WORKDIR) {
-          script {
-            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64')
-            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64')
-            utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug')
-            utils.nix_build('.#packages.riscv64-linux.microchip-icicle-kit-debug')
-            utils.nix_build('.#packages.x86_64-linux.doc')
+    stage("Build") {
+      parallel {
+        stage('x1-carbon') {
+          steps {
+            dir(WORKDIR) {
+              script {
+                utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug')
+              }
+            }
           }
         }
-      }
-    }
-    stage('Build aarch64') {
-      steps {
-        dir(WORKDIR) {
-          script {
-            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug')
-            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug')
-            utils.nix_build('.#packages.aarch64-linux.doc')
+        stage('x86_64 other') {
+          steps {
+            dir(WORKDIR) {
+              script {
+                utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64')
+                utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64')
+                utils.nix_build('.#packages.riscv64-linux.microchip-icicle-kit-debug')
+                utils.nix_build('.#packages.x86_64-linux.doc')
+              }
+            }
+          }
+        }
+        stage('aarch64') {
+          steps {
+            dir(WORKDIR) {
+              script {
+                utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug')
+                utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug')
+                utils.nix_build('.#packages.aarch64-linux.doc')
+              }
+            }
           }
         }
       }
