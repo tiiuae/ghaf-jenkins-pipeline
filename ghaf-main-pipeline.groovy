@@ -38,7 +38,7 @@ pipeline {
           )
           script {
             env.TARGET_COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
-            env.ARTIFACTS_RELPATH = "${env.JOB_NAME}/build_${env.BUILD_ID}-commit_${env.TARGET_COMMIT}"
+            env.ARTIFACTS_REMOTE_PATH = "${env.JOB_NAME}/build_${env.BUILD_ID}-commit_${env.TARGET_COMMIT}"
           }
         }
       }
@@ -47,10 +47,10 @@ pipeline {
       steps {
         dir(WORKDIR) {
           script {
-            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'out')
-            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'out')
-            utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'out')
-            utils.nix_build('.#packages.riscv64-linux.microchip-icicle-kit-debug', 'out')
+            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'archive')
+            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'archive')
+            utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'archive')
+            utils.nix_build('.#packages.riscv64-linux.microchip-icicle-kit-debug', 'archive')
             utils.nix_build('.#packages.x86_64-linux.doc')
           }
         }
@@ -60,24 +60,11 @@ pipeline {
       steps {
         dir(WORKDIR) {
           script {
-            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'out')
-            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'out')
+            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'archive')
+            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'archive')
             utils.nix_build('.#packages.aarch64-linux.doc')
           }
         }
-      }
-    }
-  }
-  post {
-    always {
-      // Archive nix build results from the builds that produced out-links
-      sh """
-        export RCLONE_WEBDAV_UNIX_SOCKET_PATH=/run/rclone-jenkins-artifacts.sock
-        export RCLONE_WEBDAV_URL=http://localhost
-        rclone sync -L ${WORKDIR}/build/ :webdav:/${env.ARTIFACTS_RELPATH}/
-      """
-      script {
-        currentBuild.description = "<a href=\"/artifacts/${env.ARTIFACTS_RELPATH}/\">📦 Artifacts</a>"
       }
     }
   }

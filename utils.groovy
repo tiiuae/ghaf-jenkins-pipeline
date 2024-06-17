@@ -33,7 +33,7 @@ def archive_artifacts(String subdir) {
     return
   } else if (subdir == "stash") {
     // 'stash' subdir is a special case indicating the artifacts under
-    // that directory are temporary, and will be removed latest
+    // that directory are temporary, and will (might) be manually removed
     // at the end of the pipeline. For that reason, no artifacts link
     // will be set in the build description.
     if (!env.STASH_REMOTE_PATH) {
@@ -55,7 +55,7 @@ def archive_artifacts(String subdir) {
 
 def purge_stash(String remote_path) {
   if (!remote_path) {
-    printlf "Warning: skipping stash purge, remote_path not set"
+    println "Warning: skipping stash purge, remote_path not set"
     return
   }
   run_rclone("purge :webdav:/${remote_path}")
