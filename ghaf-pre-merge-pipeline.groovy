@@ -151,6 +151,14 @@ pipeline {
     }
   }
   post {
+    always {
+      script {
+        if(utils) {
+          // Remove temporary, stashed build results before exiting the pipeline
+          utils.purge_stash(env.STASH_REMOTE_PATH)
+        }
+      }
+    }
     success {
       script {
         setGitHubPullRequestStatus(
@@ -167,16 +175,6 @@ pipeline {
           context: "${JOB_BASE_NAME}",
           message: "Build #${BUILD_NUMBER} failed in ${currentBuild.durationString}",
         )
-      }
-    }
-  }
-  post {
-    always {
-      script {
-        if(utils) {
-          // Remove temporary, stashed build results before exiting the pipeline
-          utils.purge_stash(env.STASH_REMOTE_PATH)
-        }
       }
     }
   }
