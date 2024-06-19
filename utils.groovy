@@ -143,13 +143,19 @@ def sbomnix(String tool, String flakeref) {
 
 def find_img_relpath(String flakeref, String subdir) {
   flakeref_trimmed = "${flakeref_trim(flakeref)}"
-  imgdir = sh(
+  img_relpath = sh(
     script: """
       cd ${subdir} && \
-      find -L ${flakeref_trimmed} -regex '.*\\.\\(img\\|raw\\|zst\\|iso\\)' -print -quit
+      find -L ${flakeref_trimmed} -regex '.*\\.\\(img\\|raw\\|zst\\|iso\\)\$' -print -quit
     """, returnStdout: true).trim()
-  println "Found flakeref '${flakeref}' img: '${imgdir}'"
-  return imgdir
+  if(!img_relpath) {
+    // Error out stopping the pipeline execution if image was not found
+    println "Error: no image found from '${subdir}/${flakeref_trimmed}'"
+    sh "exit 1"
+  } else {
+    println "Found flakeref '${flakeref}' image '${img_relpath}'"
+  }
+  return img_relpath
 }
 
 return this
