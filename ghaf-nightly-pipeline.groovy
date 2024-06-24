@@ -45,8 +45,26 @@ pipeline {
             env.TARGET_REPO = sh(script: 'git remote get-url origin', returnStdout: true).trim()
             env.TARGET_COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
             env.ARTIFACTS_REMOTE_PATH = "${env.JOB_NAME}/build_${env.BUILD_ID}-commit_${env.TARGET_COMMIT}"
+            env.GITHUBLINK="https://github.com/tiiuae/ghaf/commit/${env.TARGET_COMMIT}"
+            env.SERVER_NAME = sh(script: 'echo ${JENKINS_URL}', returnStdout: true).trim()
+                    if (env.SERVER_NAME == "") {
+                        env.SERVER_NAME = sh(script: 'uname -n', returnStdout: true).trim()
+                    }
+            def slacking=utils.determine_environment(env.SERVER_NAME)
+            env.SERVER_ENVIRONMENT=slacking.env
+            env.SERVER_SLACK_CHANNEL=slacking.channel
+            if (env.SERVER_SLACK_CHANNEL == "FALSE") {
+              env.SLACK_FLAG = "FALSE"
+            }
+            else {
+              env.SLACK_FLAG = "TRUE"
+            }
           }
         }
+        echo "Server name:${env.SERVER_NAME}"
+        echo "Server environment:${env.SERVER_ENVIRONMENT}"
+        echo "Slack channel:${env.SERVER_SLACK_CHANNEL}"
+        echo "Slacking status:${env.SLACK_FLAG}"
       }
     }
     stage('Build x86_64') {
@@ -120,6 +138,23 @@ pipeline {
             utils.sbomnix('vulnxscan', '.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug')
             utils.sbomnix('vulnxscan', '.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug')
           }
+        }
+      }
+    }
+  }
+post {
+    failure {
+      script {
+        if (env.SLACK_FLAG== 'TRUE') {
+          message= "FAIL build: ${env.SERVER_NAME} ${env.JOB_NAME} [${env.BUILD_NUMBER}] (<${env.GITHUBLINK}|The commits>)  (<${env.BUILD_URL}|The Build>)"
+          slackSend (
+            channel: "${env.SERVER_SLACK_CHANNEL}",
+            color: '#36a64f', // green
+            message: message
+          )
+        }
+        else {
+          echo "Slack message not sent. Check pipeline slack configuration!"
         }
       }
     }
