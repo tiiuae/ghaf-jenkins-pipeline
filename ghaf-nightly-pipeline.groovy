@@ -56,6 +56,7 @@ pipeline {
             utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'archive')
             utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'archive')
             utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'archive')
+            utils.nix_build('.#packages.x86_64-linux.generic-x86_64-debug', 'archive')
             utils.nix_build('.#packages.riscv64-linux.microchip-icicle-kit-debug', 'archive')
             utils.nix_build('.#hydraJobs.nvidia-jetson-orin-agx-debug-bpmp-from-x86_64.x86_64-linux', 'archive')
             utils.nix_build('.#hydraJobs.nvidia-jetson-orin-nx-debug-bpmp-from-x86_64.x86_64-linux', 'archive')
