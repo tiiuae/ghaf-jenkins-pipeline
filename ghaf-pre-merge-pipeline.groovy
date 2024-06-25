@@ -104,7 +104,6 @@ pipeline {
           )
           script {
             env.TARGET_COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
-            env.STASH_REMOTE_PATH = "stash/${env.BUILD_TAG}-commit_${env.TARGET_COMMIT}"
           }
         }
       }
@@ -138,11 +137,7 @@ pipeline {
       steps {
         dir(WORKDIR) {
           script {
-            // Temporarily store the agx build result (image) to 'stash'.
-            // The stash is currently not used, but this is an example showing
-            // how to make the image available for HW-testing, without
-            // permanently archiving the build output to artifact storage.
-            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'stash')
+            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug')
             utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug')
             utils.nix_build('.#packages.aarch64-linux.doc')
           }
@@ -151,14 +146,6 @@ pipeline {
     }
   }
   post {
-    always {
-      script {
-        if(utils) {
-          // Remove temporary, stashed build results before exiting the pipeline
-          utils.purge_stash(env.STASH_REMOTE_PATH)
-        }
-      }
-    }
     success {
       script {
         setGitHubPullRequestStatus(
