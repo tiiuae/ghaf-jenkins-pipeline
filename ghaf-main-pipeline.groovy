@@ -67,6 +67,30 @@ pipeline {
         }
       }
     }
+    stage('Boot test') {
+      steps {
+        dir(WORKDIR) {
+          script {
+            imgdir = utils.find_img_relpath('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'archive')
+            remote_path = "artifacts/${env.ARTIFACTS_REMOTE_PATH}"
+            jenkins_url = "https://ghaf-jenkins-controller-dev.northeurope.cloudapp.azure.com"
+            img_url = "${jenkins_url}/${remote_path}/${imgdir}"
+            // Trigger a build in 'ghaf-test-boot' pipeline.
+            // 'build' step is documented in https://plugins.jenkins.io/pipeline-build-step/
+            build(
+              job: "ghaf-test-boot",
+              propagate: true,
+              parameters: [
+                string(name: "LABEL", value: "testagent"),
+                string(name: "DEVICE_CONFIG_NAME", value: "orin-agx"),
+                string(name: "IMG_URL", value: "$img_url"),
+              ],
+              wait: true,
+            )
+          }
+        }
+      }
+    }
   }
 }
 
