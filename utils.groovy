@@ -31,26 +31,15 @@ def archive_artifacts(String subdir) {
   if (!subdir) {
     println "Warning: skipping archive, subdir not set"
     return
-  } else if (subdir == "stash") {
-    // 'stash' subdir is a special case indicating the artifacts under
-    // that directory are temporary, and will (might) be manually removed
-    // at the end of the pipeline. For that reason, no artifacts link
-    // will be set in the build description.
-    if (!env.STASH_REMOTE_PATH) {
-      println "Warning: skipping archive, STASH_REMOTE_PATH not set"
-      return
-    }
-    run_rclone("copy -L ${subdir}/ :webdav:/${env.STASH_REMOTE_PATH}/")
-  } else {
-    // All other subdirs are archived to env.ARTIFACTS_REMOTE_PATH
-    if (!env.ARTIFACTS_REMOTE_PATH) {
-      println "Warning: skipping archive, ARTIFACTS_REMOTE_PATH not set"
-      return
-    }
-    run_rclone("copy -L ${subdir}/ :webdav:/${env.ARTIFACTS_REMOTE_PATH}/")
-    href="/artifacts/${env.ARTIFACTS_REMOTE_PATH}/"
-    currentBuild.description = "<a href=\"${href}\">📦 Artifacts</a>"
   }
+  // Archive artifacts to env.ARTIFACTS_REMOTE_PATH
+  if (!env.ARTIFACTS_REMOTE_PATH) {
+    println "Warning: skipping archive, ARTIFACTS_REMOTE_PATH not set"
+    return
+  }
+  run_rclone("copy -L ${subdir}/ :webdav:/${env.ARTIFACTS_REMOTE_PATH}/")
+  href="/artifacts/${env.ARTIFACTS_REMOTE_PATH}/"
+  currentBuild.description = "<a href=\"${href}\">📦 Artifacts</a>"
 }
 
 def purge_stash(String remote_path) {
