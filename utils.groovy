@@ -42,9 +42,9 @@ def archive_artifacts(String subdir) {
   currentBuild.description = "<a href=\"${href}\">📦 Artifacts</a>"
 }
 
-def purge_stash(String remote_path) {
+def purge_artifacts(String remote_path) {
   if (!remote_path) {
-    println "Warning: skipping stash purge, remote_path not set"
+    println "Warning: skipping artifacts purge, remote_path not set"
     return
   }
   run_rclone("purge :webdav:/${remote_path}")
@@ -145,6 +145,35 @@ def find_img_relpath(String flakeref, String subdir) {
     println "Found flakeref '${flakeref}' image '${img_relpath}'"
   }
   return img_relpath
+}
+
+def boot_test(String flakeref, String device_config, String jenkins_url, String subdir='archive') {
+  testagent_nodes = nodesByLabel(label: 'testagent', offline: false)
+  if (!testagent_nodes) {
+    println "Warning: Skipping boot test '$flakeref', no test agents online"
+    unstable("No test agents online")
+    return
+  }
+  if (!env.ARTIFACTS_REMOTE_PATH) {
+    println "Warning: skipping boot_test '$flakeref', ARTIFACTS_REMOTE_PATH not set"
+    return
+  }
+  // Compose the image URL; testagent will need this URL to download the image
+  imgdir = find_img_relpath(flakeref, subdir)
+  remote_path = "artifacts/${env.ARTIFACTS_REMOTE_PATH}"
+  img_url = "${jenkins_url}/${remote_path}/${imgdir}"
+  // Trigger a build in 'ghaf-test-boot' pipeline.
+  // 'build' step is documented in https://plugins.jenkins.io/pipeline-build-step/
+  build(
+    job: "ghaf-test-boot",
+    propagate: true,
+    parameters: [
+      string(name: "LABEL", value: "testagent"),
+      string(name: "DEVICE_CONFIG_NAME", value: "$device_config"),
+      string(name: "IMG_URL", value: "$img_url"),
+    ],
+    wait: true,
+  )
 }
 
 return this
