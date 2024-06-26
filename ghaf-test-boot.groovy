@@ -38,12 +38,23 @@ pipeline {
         }
       }
     }
+    stage('Set description') {
+      steps {
+        script {
+          if(!params.containsKey('DESC')) {
+            println "Missing DESC parameter, skip setting description"
+          } else {
+            currentBuild.description = "${params.DESC}"
+          }
+        }
+      }
+    }
     stage('Image download') {
       steps {
         script {
-          if (!params.containsKey('IMG_URL')) {
+          if(!params.containsKey('IMG_URL')) {
             println "Missing IMG_URL parameter"
-            exit 1
+            sh "exit 1"
           }
           sh "rm -fr ${TMP_IMG_DIR}"
           sh "wget -nv --show-progress --progress=dot:giga -P ${TMP_IMG_DIR} ${params.IMG_URL}"
@@ -62,7 +73,7 @@ pipeline {
         script {
           if(!params.getOrDefault('DEVICE_CONFIG_NAME', null)) {
             println "Missing DEVICE_CONFIG_NAME parameter"
-            exit 1
+            sh "exit 1"
           }
           mount_cmd = unmount_cmd = devstr = null
           if(["orin-agx"].contains(params.DEVICE_CONFIG_NAME)) {
