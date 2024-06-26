@@ -34,7 +34,7 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        script { utils = load "utils.groovy" }
+        script { utils = load "/tmp/utils.groovy" }
         dir(WORKDIR) {
           checkout scmGit(
             branches: [[name: 'main']],
@@ -46,25 +46,15 @@ pipeline {
             env.TARGET_COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
             env.ARTIFACTS_REMOTE_PATH = "${env.JOB_NAME}/build_${env.BUILD_ID}-commit_${env.TARGET_COMMIT}"
             env.GITHUBLINK="https://github.com/tiiuae/ghaf/commit/${env.TARGET_COMMIT}"
-            env.SERVER_NAME = sh(script: 'echo ${JENKINS_URL}', returnStdout: true).trim()
-                    if (env.SERVER_NAME == "") {
-                        env.SERVER_NAME = sh(script: 'uname -n', returnStdout: true).trim()
-                    }
-            def slacking=utils.determine_environment(env.SERVER_NAME)
-            env.SERVER_ENVIRONMENT=slacking.env
-            env.SERVER_SLACK_CHANNEL=slacking.channel
-            if (env.SERVER_SLACK_CHANNEL == "FALSE") {
-              env.SLACK_FLAG = "FALSE"
-            }
-            else {
-              env.SLACK_FLAG = "TRUE"
+            env.SERVER_NAME = sh(script: 'uname -n', returnStdout: true).trim()
+            env.SERVER_SLACK_CHANNEL=""
+            if (env.SERVER_NAME=="ghaf-jenkins-controller-dev") {
+              env.SERVER_SLACK_CHANNEL="ghaf-jenkins-builds-failed"
             }
           }
         }
         echo "Server name:${env.SERVER_NAME}"
-        echo "Server environment:${env.SERVER_ENVIRONMENT}"
         echo "Slack channel:${env.SERVER_SLACK_CHANNEL}"
-        echo "Slacking status:${env.SLACK_FLAG}"
       }
     }
     stage('Build x86_64') {
@@ -145,7 +135,7 @@ pipeline {
 post {
     failure {
       script {
-        if (env.SLACK_FLAG== 'TRUE') {
+        if (env.SERVER_SLACK_CHANNEL != "") {
           message= "FAIL build: ${env.SERVER_NAME} ${env.JOB_NAME} [${env.BUILD_NUMBER}] (<${env.GITHUBLINK}|The commits>)  (<${env.BUILD_URL}|The Build>)"
           slackSend (
             channel: "${env.SERVER_SLACK_CHANNEL}",

@@ -152,19 +152,6 @@ def find_img_relpath(String flakeref, String subdir) {
   return imgdir
 }
 
-def determine_environment(serverName) {
-   def DEV_SLACK_CHANNEL = "ghaf-jenkins-builds-failed"
-   def PROD_SLACK_CHANNEL = "FALSE" // no slacking
-   def PRIVATE_SLACK_CHANNEL = "ghaf-jenkins-ci"
-    if (serverName.contains('prod')) {
-        return [env: 'prod', channel:PROD_SLACK_CHANNEL ]
-    } else if (serverName.contains('dev')) {
-        return [env: 'dev', channel:DEV_SLACK_CHANNEL ]
-    } else {
-        return [env:'priv', channel:PRIVATE_SLACK_CHANNEL ]
-    }
-}
-
 return this
 
 ////////////////////////////////////////////////////////////////////////////////
