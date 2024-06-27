@@ -163,10 +163,10 @@ def boot_test(String flakeref, String device_config, String jenkins_url, String 
   remote_path = "artifacts/${env.ARTIFACTS_REMOTE_PATH}"
   img_url = "${jenkins_url}/${remote_path}/${imgdir}"
   build_url = "${jenkins_url}/job/${env.JOB_NAME}/${env.BUILD_ID}"
-  build_href = "<a href=\"${build_url}\">#${env.BUILD_ID}</a>"
+  build_href = "<a href=\"${build_url}\">${env.JOB_NAME}#${env.BUILD_ID}</a>"
   // 'short' flakeref: everything after the last occurence of '.' (if any)
   flakeref_short = flakeref_trim(flakeref).replaceAll(/.*\.+/,"")
-  description = "Triggered by upstream build ${build_href}<br>(${flakeref_short})"
+  description = "Triggered by ${build_href}<br>(${flakeref_short})"
   // Trigger a build in 'ghaf-test-boot' pipeline.
   // 'build' step is documented in https://plugins.jenkins.io/pipeline-build-step/
   build(
