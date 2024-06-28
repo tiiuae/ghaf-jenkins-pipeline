@@ -39,7 +39,15 @@ pipeline {
           script {
             env.TARGET_COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
             env.ARTIFACTS_REMOTE_PATH = "${env.JOB_NAME}/build_${env.BUILD_ID}-commit_${env.TARGET_COMMIT}"
+            env.GITHUBLINK="https://github.com/tiiuae/ghaf/commit/${env.TARGET_COMMIT}"
+            env.SERVER_NAME = sh(script: 'uname -n', returnStdout: true).trim()
+            env.SERVER_SLACK_CHANNEL=""
+            if (env.SERVER_NAME=="ghaf-jenkins-controller-dev") {
+              env.SERVER_SLACK_CHANNEL="ghaf-jenkins-builds-failed"
+            }
           }
+        echo "Server name:${env.SERVER_NAME}"
+        echo "Slack channel:${env.SERVER_SLACK_CHANNEL}"
         }
       }
     }
@@ -75,6 +83,24 @@ pipeline {
             utils.boot_test('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'orin-agx', jenkins_url)
             utils.boot_test('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'orin-agx', jenkins_url)
           }
+        }
+      }
+    }
+  }
+
+  post {
+    failure {
+      script {
+        if (env.SERVER_SLACK_CHANNEL != "") {
+          message= "FAIL build: ${env.SERVER_NAME} ${env.JOB_NAME} [${env.BUILD_NUMBER}] (<${env.GITHUBLINK}|The commits>)  (<${env.BUILD_URL}|The Build>)"
+          slackSend (
+            channel: "${env.SERVER_SLACK_CHANNEL}",
+            color: '#36a64f', // green
+            message: message
+          )
+        }
+        else {
+          echo "Slack message not sent. Check pipeline slack configuration!"
         }
       }
     }
