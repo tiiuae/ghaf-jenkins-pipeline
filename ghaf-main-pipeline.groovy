@@ -79,6 +79,29 @@ pipeline {
       }
     }
   }
+
+  post {
+    failure {
+      script {
+        githublink="https://github.com/tiiuae/ghaf/commit/${env.TARGET_COMMIT}"
+        servername = sh(script: 'uname -n', returnStdout: true).trim()
+        echo "Server name:$servername"
+        if (servername=="ghaf-jenkins-controller-dev") {
+          serverchannel="ghaf-jenkins-builds-failed"
+          echo "Slack channel:$serverchannel"
+          message= "FAIL build: ${servername} ${env.JOB_NAME} [${env.BUILD_NUMBER}] (<${githublink}|The commits>)  (<${env.BUILD_URL}|The Build>)"
+          slackSend (
+            channel: "$serverchannel",
+            color: '#36a64f', // green
+            message: message
+          )
+        }
+        else {
+          echo "Slack message not sent (failed build). Check pipeline slack configuration!"
+        }
+      }
+    }
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
