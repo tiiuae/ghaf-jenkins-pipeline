@@ -8,12 +8,20 @@
 def REPO_URL = 'https://github.com/tiiuae/ci-test-automation/'
 def DEF_LABEL = 'testagent'
 def TMP_IMG_DIR = 'image'
+def CONF_FILE_PATH = '/etc/jenkins/test_config.json'
 
 ////////////////////////////////////////////////////////////////////////////////
 
 def run_cmd(String cmd) {
   // Run cmd returning stdout
   return sh(script: cmd, returnStdout:true).trim()
+}
+
+def get_test_conf_property(file_path, device, property) {
+  // get wanted property data from wanted device from test_config.json file
+  def device_data = readJSON file: file_path
+  property_data = "${device_data['addresses'][device][property]}"
+  return property_data
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -77,13 +85,15 @@ pipeline {
           }
           mount_cmd = unmount_cmd = devstr = null
           if(["orin-agx"].contains(params.DEVICE_CONFIG_NAME)) {
-            mount_cmd = '/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s 0x2954223B; sleep 10'
-            unmount_cmd = '/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s 0x2954223B'
-            devstr = 'PSSD'
             // Device-sepcific configuration needed in other steps are passed
             // as environment variables
             env.DEVICE = 'OrinAGX1'
             env.INCLUDE_TEST_TAGS = 'bootANDorin-agx'
+            // get usb hub serial number from test_config.json
+            hub_serial = get_test_conf_property(CONF_FILE_PATH, DEVICE, 'usbhub_serial')
+            mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${hub_serial}; sleep 10"
+            unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${hub_serial}"
+            devstr = 'PSSD'
           } else {
             println "Error: unsupported device config '${params.DEVICE_CONFIG_NAME}'"
             sh "exit 1"
