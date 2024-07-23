@@ -40,6 +40,11 @@ targets.each {
             utils.nix_build("${target}", 'archive')
           }
         }
+        stage("Archive ${target}") {
+          dir(FMO_PATH) {
+            utils.archive_artifacts("${target}", ['archive'])
+          }
+        }
       }
     }
 
