@@ -27,9 +27,10 @@ def run_rclone(String opts) {
   """
 }
 
-def archive_artifacts(String subdir) {
-  if (!subdir) {
-    println "Warning: skipping archive, subdir not set"
+def archive_artifacts(String flakeref, ArrayList subdirs) {
+  String flakeref_trimmed = "${flakeref_trim(flakeref)}"
+  if (!subdirs) {
+    println "Warning: skipping archive, subdirs not set"
     return
   }
   // Archive artifacts to env.ARTIFACTS_REMOTE_PATH
@@ -37,8 +38,18 @@ def archive_artifacts(String subdir) {
     println "Warning: skipping archive, ARTIFACTS_REMOTE_PATH not set"
     return
   }
-  run_rclone("copy -L ${subdir}/ :webdav:/${env.ARTIFACTS_REMOTE_PATH}/")
-  href="/artifacts/${env.ARTIFACTS_REMOTE_PATH}/"
+  // List paths to tar as a string
+  String pathTail = "/${flakeref_trimmed}/* "
+  String toTar = subdirs.join(pathTail) + pathTail
+  sh """
+    # tar is missing from Jenkins PATH
+    export PATH="$PATH:/run/current-system/sw/bin"
+    tar -cvf ${subdirs[0]}/${flakeref_trimmed}.tar ${toTar}
+  """
+  for (dir in subdirs) {
+    run_rclone("copy -L ${dir}/ :webdav:/${env.ARTIFACTS_REMOTE_PATH}/")
+  }
+  String href="/artifacts/${env.ARTIFACTS_REMOTE_PATH}/"
   currentBuild.description = "<a href=\"${href}\">📦 Artifacts</a>"
 }
 
@@ -66,10 +77,6 @@ def nix_build(String flakeref, String subdir=null) {
     // Store the build end time to job's environment
     epoch_seconds = (int) (new Date().getTime() / 1000l)
     env."END_${flakeref_trimmed}_${env.BUILD_TAG}" = epoch_seconds
-    // Archive possible build outputs from subdir directory
-    if (subdir) {
-        archive_artifacts(subdir)
-    }
   } catch (InterruptedException e) {
     // Do not continue pipeline execution on abort.
     throw e
@@ -127,7 +134,6 @@ def sbomnix(String tool, String flakeref) {
       csvcut vulns.csv --not-columns sortcol | csvlook -I >${outdir}/vulns.txt
     """
   }
-  archive_artifacts("scs")
 }
 
 def find_img_relpath(String flakeref, String subdir) {
