@@ -48,6 +48,7 @@ properties([
 pipeline {
   agent { label 'built-in' }
   options {
+    disableConcurrentBuilds()
     timestamps ()
     buildDiscarder(logRotator(numToKeepStr: '100'))
   }
