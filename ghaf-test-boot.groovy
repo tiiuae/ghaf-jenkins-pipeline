@@ -83,45 +83,26 @@ pipeline {
             println "Missing DEVICE_CONFIG_NAME parameter"
             sh "exit 1"
           }
-          mount_cmd = unmount_cmd = devstr = null
           if(["orin-agx"].contains(params.DEVICE_CONFIG_NAME)) {
-            // Device-sepcific configuration needed in other steps are passed
-            // as environment variables
             env.DEVICE = 'OrinAGX1'
             env.INCLUDE_TEST_TAGS = 'bootANDorin-agx'
-            // get usb hub serial number from test_config.json
-            hub_serial = get_test_conf_property(CONF_FILE_PATH, DEVICE, 'usbhub_serial')
-            mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${hub_serial}; sleep 10"
-            unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${hub_serial}"
-            devstr = 'PSSD'
           } else if(["orin-nx"].contains(params.DEVICE_CONFIG_NAME)) {
-            // Device-sepcific configuration needed in other steps are passed
-            // as environment variables
             env.DEVICE = 'OrinNX1'
             env.INCLUDE_TEST_TAGS = 'bootANDorin-nx'
-            // get usb hub serial number from test_config.json
-            hub_serial = get_test_conf_property(CONF_FILE_PATH, DEVICE, 'usbhub_serial')
-            mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${hub_serial}; sleep 10"
-            unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${hub_serial}"
-            devstr = 'PSSD'
           } else if(["lenovo-x1"].contains(params.DEVICE_CONFIG_NAME)) {
-            // Device-sepcific configuration needed in other steps are passed
-            // as environment variables
             env.DEVICE = 'LenovoX1-2'
             env.INCLUDE_TEST_TAGS = 'bootANDlenovo-x1'
-            // get usb hub serial number from test_config.json
-            hub_serial = get_test_conf_property(CONF_FILE_PATH, DEVICE, 'usbhub_serial')
-            mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${hub_serial}; sleep 10"
-            unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${hub_serial}"
-            devstr = 'PSSD'
           } else {
             println "Error: unsupported device config '${params.DEVICE_CONFIG_NAME}'"
             sh "exit 1"
           }
+          hub_serial = get_test_conf_property(CONF_FILE_PATH, env.DEVICE, 'usbhub_serial')
+          mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${hub_serial}; sleep 10"
+          unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${hub_serial}"
           // Mount the target disk
           sh "${mount_cmd}"
           // Read the device name
-          dev = run_cmd("lsblk -o model,name | grep ${devstr} | rev | cut -d ' ' -f 1 | rev | grep .")
+          dev = run_cmd("lsblk -o model,name | grep 'PSSD' | rev | cut -d ' ' -f 1 | rev | grep .")
           println "Using device '$dev'"
           if(["lenovo-x1"].contains(params.DEVICE_CONFIG_NAME)) {
             echo "Wiping filesystem..."
