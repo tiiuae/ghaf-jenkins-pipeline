@@ -94,6 +94,26 @@ pipeline {
             mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${hub_serial}; sleep 10"
             unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${hub_serial}"
             devstr = 'PSSD'
+          } else if(["orin-nx"].contains(params.DEVICE_CONFIG_NAME)) {
+            // Device-sepcific configuration needed in other steps are passed
+            // as environment variables
+            env.DEVICE = 'OrinNX1'
+            env.INCLUDE_TEST_TAGS = 'bootANDorin-nx'
+            // get usb hub serial number from test_config.json
+            hub_serial = get_test_conf_property(CONF_FILE_PATH, DEVICE, 'usbhub_serial')
+            mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${hub_serial}; sleep 10"
+            unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${hub_serial}"
+            devstr = 'PSSD'
+          } else if(["lenovo-x1"].contains(params.DEVICE_CONFIG_NAME)) {
+            // Device-sepcific configuration needed in other steps are passed
+            // as environment variables
+            env.DEVICE = 'LenovoX1-2'
+            env.INCLUDE_TEST_TAGS = 'bootANDlenovo-x1'
+            // get usb hub serial number from test_config.json
+            hub_serial = get_test_conf_property(CONF_FILE_PATH, DEVICE, 'usbhub_serial')
+            mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${hub_serial}; sleep 10"
+            unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${hub_serial}"
+            devstr = 'PSSD'
           } else {
             println "Error: unsupported device config '${params.DEVICE_CONFIG_NAME}'"
             sh "exit 1"
@@ -103,6 +123,19 @@ pipeline {
           // Read the device name
           dev = run_cmd("lsblk -o model,name | grep ${devstr} | rev | cut -d ' ' -f 1 | rev | grep .")
           println "Using device '$dev'"
+          if(["lenovo-x1"].contains(params.DEVICE_CONFIG_NAME)) {
+            echo "Wiping filesystem..."
+            def SECTOR = 512
+            def MIB_TO_SECTORS = 20480
+            // Disk size in 512-byte sectors
+            def SECTORS = sh(script: "sudo blockdev --getsz /dev/${dev}", returnStdout: true).trim()
+            // Unmount possible mounted filesystems
+            sh "sync; sudo umount -q /dev/${dev}* || true"
+            // Wipe first 10MiB of disk
+            sh "sudo dd if=/dev/zero of=/dev/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} conv=fsync status=none"
+            // Wipe last 10MiB of disk
+            sh "sudo dd if=/dev/zero of=/dev/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} seek=\$(( ${SECTORS} - ${MIB_TO_SECTORS} )) conv=fsync status=none"
+          }
           // Write the image
           img_relpath = run_cmd("find ${TMP_IMG_DIR} -type f -print -quit | grep .")
           println "Using image '$img_relpath'"
@@ -125,6 +158,8 @@ pipeline {
         withCredentials([
           string(credentialsId: 'testagent-dut-pass', variable: 'DUT_PASS'),
           string(credentialsId: 'testagent-plug-pass', variable: 'PLUG_PASS'),
+          string(credentialsId: 'testagent-switch-token', variable: 'SW_TOKEN'),
+          string(credentialsId: 'testagent-switch-secret', variable: 'SW_SECRET'),
           ]) {
             dir('Robot-Framework/test-suites') {
               sh 'rm -f *.png output.xml report.html log.html'
@@ -139,6 +174,8 @@ pipeline {
                   -v PASSWORD:$DUT_PASS \
                   -v PLUG_USERNAME:ville-pekka.juntunen@unikie.com \
                   -v PLUG_PASSWORD:$PLUG_PASS \
+                  -v SWITCH_TOKEN:$SW_TOKEN \
+                  -v SWITCH_SECRET:$SW_SECRET \
                   -i $INCLUDE_TEST_TAGS .
               '''
             }
