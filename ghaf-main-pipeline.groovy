@@ -77,6 +77,9 @@ pipeline {
             jenkins_url = "https://ghaf-jenkins-controller-dev.northeurope.cloudapp.azure.com"
             utils.boot_test('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'orin-agx', jenkins_url)
             utils.boot_test('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'orin-agx', jenkins_url)
+            utils.boot_test('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'orin-nx', jenkins_url)
+            utils.boot_test('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'orin-nx', jenkins_url)
+            utils.boot_test('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'lenovo-x1', jenkins_url)
           }
         }
       }
