@@ -109,13 +109,13 @@ pipeline {
             def SECTOR = 512
             def MIB_TO_SECTORS = 20480
             // Disk size in 512-byte sectors
-            def SECTORS = sh(script: "sudo blockdev --getsz /dev/${dev}", returnStdout: true).trim()
+            def SECTORS = sh(script: "/run/wrappers/bin/sudo blockdev --getsz /dev/${dev}", returnStdout: true).trim()
             // Unmount possible mounted filesystems
-            sh "sync; sudo umount -q /dev/${dev}* || true"
+            sh "sync; /run/wrappers/bin/sudo umount -q /dev/${dev}* || true"
             // Wipe first 10MiB of disk
-            sh "sudo dd if=/dev/zero of=/dev/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} conv=fsync status=none"
+            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=/dev/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} conv=fsync status=none"
             // Wipe last 10MiB of disk
-            sh "sudo dd if=/dev/zero of=/dev/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} seek=\$(( ${SECTORS} - ${MIB_TO_SECTORS} )) conv=fsync status=none"
+            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=/dev/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} seek=\$(( ${SECTORS} - ${MIB_TO_SECTORS} )) conv=fsync status=none"
           }
           // Write the image
           img_relpath = run_cmd("find ${TMP_IMG_DIR} -type f -print -quit | grep .")
