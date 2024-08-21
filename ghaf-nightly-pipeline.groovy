@@ -80,6 +80,21 @@ pipeline {
         }
       }
     }
+    stage('HW test') {
+      steps {
+        dir(WORKDIR) {
+          script {
+            jenkins_url = "https://ghaf-jenkins-controller-dev.northeurope.cloudapp.azure.com"
+            testset = "_boot_bat_perf_"
+            utils.ghaf_hw_test('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'orin-agx', jenkins_url, testset)
+            utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'orin-agx', jenkins_url, testset)
+            utils.ghaf_hw_test('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'orin-nx', jenkins_url, testset)
+            utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'orin-nx', jenkins_url, testset)
+            utils.ghaf_hw_test('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'lenovo-x1', jenkins_url, testset)
+          }
+        }
+      }
+    }
     stage('Provenance') {
       steps {
         dir(WORKDIR) {
