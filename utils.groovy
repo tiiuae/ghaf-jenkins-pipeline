@@ -105,11 +105,10 @@ def provenance(String flakeref, String outdir, String flakeref_trimmed) {
       }
     """
     opts = "--recursive --out ${outdir}/provenance.json"
-    sh "nix run github:tiiuae/sbomnix/${sbomnix_hexsha}#provenance -- ${flakeref} ${opts}"
+    sh "provenance ${flakeref} ${opts}"
 }
 
 def sbomnix(String tool, String flakeref) {
-  sbomnix_hexsha = "0b19e055d1f5124fd67d567db342ef4dd21da6f2"
   flakeref_trimmed = "${flakeref_trim(flakeref)}"
   // Sbomnix outputs are stored in directory hierarchy under 'scs/'
   outdir = "scs/${flakeref_trimmed}/scs"
@@ -119,11 +118,11 @@ def sbomnix(String tool, String flakeref) {
   } else if (tool == "sbomnix") {
     sh """
       cd ${outdir}
-      nix run github:tiiuae/sbomnix/${sbomnix_hexsha}#sbomnix -- ${flakeref}
+      sbomnix ${flakeref}
     """
   } else if (tool == "vulnxscan") {
     sh """
-      nix run github:tiiuae/sbomnix/${sbomnix_hexsha}#vulnxscan -- ${flakeref} --out vulns.csv
+      vulnxscan ${flakeref} --out vulns.csv
       csvcut vulns.csv --not-columns sortcol | csvlook -I >${outdir}/vulns.txt
     """
   }
