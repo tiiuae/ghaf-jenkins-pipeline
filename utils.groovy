@@ -147,7 +147,8 @@ def find_img_relpath(String flakeref, String subdir) {
   return img_relpath
 }
 
-def boot_test(String flakeref, String device_config, String jenkins_url, String subdir='archive') {
+def ghaf_hw_test(String flakeref, String device_config, String jenkins_url, String testset='_boot_')
+  {
   testagent_nodes = nodesByLabel(label: 'testagent', offline: false)
   if (!testagent_nodes) {
     println "Warning: Skipping boot test '$flakeref', no test agents online"
@@ -159,7 +160,7 @@ def boot_test(String flakeref, String device_config, String jenkins_url, String 
     return
   }
   // Compose the image URL; testagent will need this URL to download the image
-  imgdir = find_img_relpath(flakeref, subdir)
+  imgdir = find_img_relpath(flakeref, 'archive')
   remote_path = "artifacts/${env.ARTIFACTS_REMOTE_PATH}"
   img_url = "${jenkins_url}/${remote_path}/${imgdir}"
   build_url = "${jenkins_url}/job/${env.JOB_NAME}/${env.BUILD_ID}"
@@ -167,16 +168,17 @@ def boot_test(String flakeref, String device_config, String jenkins_url, String 
   // 'short' flakeref: everything after the last occurence of '.' (if any)
   flakeref_short = flakeref_trim(flakeref).replaceAll(/.*\.+/,"")
   description = "Triggered by ${build_href}<br>(${flakeref_short})"
-  // Trigger a build in 'ghaf-test-boot' pipeline.
+  // Trigger a build in 'ghaf-hw-test' pipeline.
   // 'build' step is documented in https://plugins.jenkins.io/pipeline-build-step/
   build(
-    job: "ghaf-test-boot",
+    job: "ghaf-hw-test",
     propagate: true,
     parameters: [
       string(name: "LABEL", value: "testagent"),
       string(name: "DEVICE_CONFIG_NAME", value: "$device_config"),
       string(name: "IMG_URL", value: "$img_url"),
       string(name: "DESC", value: "$description"),
+      string(name: "TESTSET", value: "$testset"),
     ],
     wait: true,
   )

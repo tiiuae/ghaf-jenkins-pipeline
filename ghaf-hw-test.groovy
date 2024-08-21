@@ -17,12 +17,69 @@ def run_cmd(String cmd) {
   return sh(script: cmd, returnStdout:true).trim()
 }
 
-def get_test_conf_property(file_path, device, property) {
-  // get wanted property data from wanted device from test_config.json file
+def get_test_conf_property(String file_path, String device, String property) {
+  // Get the requested device property data from test_config.json file
   def device_data = readJSON file: file_path
   property_data = "${device_data['addresses'][device][property]}"
+  println "Got device '${device}' property '${property}' value: '${property_data}'"
   return property_data
 }
+
+def ghaf_robot_test(String testname='boot') {
+  if (!env.DEVICE_TAG) {
+    sh "echo 'DEVICE_TAG not set'; exit 1"
+  }
+  if (!env.DEVICE_NAME) {
+    sh "echo 'DEVICE_NAME not set'; exit 1"
+  }
+  // TODO: do we really need credentials to access the target devices?
+  // Target devices are connected to the testagent, which itself is
+  // only available over a private network. What is the risk
+  // we are protecting against by having additional authentication
+  // for the test devices?
+  // The current configuration requires additional manual configuration
+  // on the jenkins UI to add the following secrets:
+  withCredentials([
+    string(credentialsId: 'testagent-dut-pass', variable: 'DUT_PASS'),
+    string(credentialsId: 'testagent-plug-pass', variable: 'PLUG_PASS'),
+    string(credentialsId: 'testagent-switch-token', variable: 'SW_TOKEN'),
+    string(credentialsId: 'testagent-switch-secret', variable: 'SW_SECRET'),
+  ]) {
+    dir('Robot-Framework/test-suites') {
+      env.INCLUDE_TEST_TAGS = "${testname}AND${env.DEVICE_TAG}"
+      sh 'rm -f *.png output.xml report.html log.html'
+      // On failure, continue the pipeline execution
+      catchError(stageResult: 'FAILURE', buildResult: 'FAILURE') {
+        // Pass the secrets to the shell as environment variables, as we
+        // don't want Groovy to interpolate them. Similary, we pass
+        // other variables as environment variables to shell.
+        // Ref: https://www.jenkins.io/doc/book/pipeline/jenkinsfile/#string-interpolation
+        sh '''
+          nix run .#ghaf-robot -- \
+            -v DEVICE:$DEVICE_NAME \
+            -v LOGIN:ghaf \
+            -v PASSWORD:$DUT_PASS \
+            -v PLUG_USERNAME:ville-pekka.juntunen@unikie.com \
+            -v PLUG_PASSWORD:$PLUG_PASS \
+            -v SWITCH_TOKEN:$SW_TOKEN \
+            -v SWITCH_SECRET:$SW_SECRET \
+            -v BUILD_ID:${BUILD_NUMBER} \
+            -i $INCLUDE_TEST_TAGS .
+        '''
+        // Move the test output (if any) to a subdirectory
+        sh """
+          rm -fr $testname; mkdir -p $testname
+          mv -f *.png output.xml report.html log.html $testname/ || true
+        """
+        if (testname == 'boot') {
+          // Set an environment variable to indicate boot test passed
+          env.BOOT_PASSED = 'true'
+        }
+      }
+    }
+  }
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -46,7 +103,7 @@ pipeline {
         }
       }
     }
-    stage('Set description') {
+    stage('Setup') {
       steps {
         script {
           if(!params.containsKey('DESC')) {
@@ -54,6 +111,8 @@ pipeline {
           } else {
             currentBuild.description = "${params.DESC}"
           }
+          env.TESTSET = params.getOrDefault('TESTSET', '_boot_')
+          println "Using TESTSET: ${env.TESTSET}"
         }
       }
     }
@@ -84,19 +143,19 @@ pipeline {
             sh "exit 1"
           }
           if(["orin-agx"].contains(params.DEVICE_CONFIG_NAME)) {
-            env.DEVICE = 'OrinAGX1'
-            env.INCLUDE_TEST_TAGS = 'bootANDorin-agx'
+            env.DEVICE_NAME = 'OrinAGX1'
+            env.DEVICE_TAG = 'orin-agx'
           } else if(["orin-nx"].contains(params.DEVICE_CONFIG_NAME)) {
-            env.DEVICE = 'OrinNX1'
-            env.INCLUDE_TEST_TAGS = 'bootANDorin-nx'
+            env.DEVICE_NAME = 'OrinNX1'
+            env.DEVICE_TAG = 'orin-nx'
           } else if(["lenovo-x1"].contains(params.DEVICE_CONFIG_NAME)) {
-            env.DEVICE = 'LenovoX1-2'
-            env.INCLUDE_TEST_TAGS = 'bootANDlenovo-x1'
+            env.DEVICE_NAME = 'LenovoX1-2'
+            env.DEVICE_TAG = 'lenovo-x1'
           } else {
             println "Error: unsupported device config '${params.DEVICE_CONFIG_NAME}'"
             sh "exit 1"
           }
-          hub_serial = get_test_conf_property(CONF_FILE_PATH, env.DEVICE, 'usbhub_serial')
+          hub_serial = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'usbhub_serial')
           mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${hub_serial}; sleep 10"
           unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${hub_serial}"
           // Mount the target disk
@@ -127,54 +186,43 @@ pipeline {
       }
     }
     stage('Boot test') {
+      when { expression { env.TESTSET.contains('_boot_')} }
       steps {
         script {
-        // TODO: do we really need credentials to access the target devices?
-        // Target devices are connected to the testagent, which itself is
-        // only available over a private network. What is the risk
-        // we are protecting against by having additional authentication
-        // for the test devices?
-        // The current configuration requires additional manual configuration
-        // on the jenkins UI to add the following secrets:
-        withCredentials([
-          string(credentialsId: 'testagent-dut-pass', variable: 'DUT_PASS'),
-          string(credentialsId: 'testagent-plug-pass', variable: 'PLUG_PASS'),
-          string(credentialsId: 'testagent-switch-token', variable: 'SW_TOKEN'),
-          string(credentialsId: 'testagent-switch-secret', variable: 'SW_SECRET'),
-          ]) {
-            dir('Robot-Framework/test-suites') {
-              sh 'rm -f *.png output.xml report.html log.html'
-              // Pass the secrets to the shell as environment variables, as we
-              // don't want Groovy to interpolate them. Similary, we pass
-              // other variables as environment variables to shell.
-              // Ref: https://www.jenkins.io/doc/book/pipeline/jenkinsfile/#string-interpolation
-              sh '''
-                nix run .#ghaf-robot -- \
-                  -v DEVICE:$DEVICE \
-                  -v LOGIN:ghaf \
-                  -v PASSWORD:$DUT_PASS \
-                  -v PLUG_USERNAME:ville-pekka.juntunen@unikie.com \
-                  -v PLUG_PASSWORD:$PLUG_PASS \
-                  -v SWITCH_TOKEN:$SW_TOKEN \
-                  -v SWITCH_SECRET:$SW_SECRET \
-                  -i $INCLUDE_TEST_TAGS .
-              '''
-            }
-          }
+          env.BOOT_PASSED = 'false'
+          ghaf_robot_test('boot')
+          println "Boot test passed: ${env.BOOT_PASSED}"
+        }
+      }
+    }
+    stage('Bat test') {
+      when { expression { env.BOOT_PASSED == 'true' && env.TESTSET.contains('_bat_')} }
+      steps {
+        script {
+          ghaf_robot_test('bat')
+        }
+      }
+    }
+    stage('Perf test') {
+      when { expression { env.BOOT_PASSED == 'true' && env.TESTSET.contains('_perf_')} }
+      steps {
+        script {
+          ghaf_robot_test('performance')
         }
       }
     }
   }
   post {
     always {
+      // Publish all results under Robot-Framework/test-suites subfolders
       step(
         [$class: 'RobotPublisher',
           archiveDirName: 'robot-plugin',
           outputPath: 'Robot-Framework/test-suites',
-          outputFileName: 'output.xml',
+          outputFileName: '**/output.xml',
           disableArchiveOutput: false,
-          reportFileName: 'report.html',
-          logFileName: 'log.html',
+          reportFileName: '**/report.html',
+          logFileName: '**/log.html',
           passThreshold: 0,
           unstableThreshold: 0,
           onlyCritical: true,
