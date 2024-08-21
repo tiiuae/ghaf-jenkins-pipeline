@@ -46,7 +46,11 @@ def ghaf_robot_test(String testname='boot') {
     string(credentialsId: 'testagent-switch-secret', variable: 'SW_SECRET'),
   ]) {
     dir('Robot-Framework/test-suites') {
-      env.INCLUDE_TEST_TAGS = "${testname}AND${env.DEVICE_TAG}"
+      if (testname == 'turnoff') {
+        env.INCLUDE_TEST_TAGS = "${testname}"
+      } else {
+        env.INCLUDE_TEST_TAGS = "${testname}AND${env.DEVICE_TAG}"
+      }
       sh 'rm -f *.png output.xml report.html log.html'
       // On failure, continue the pipeline execution
       catchError(stageResult: 'FAILURE', buildResult: 'FAILURE') {
@@ -208,6 +212,13 @@ pipeline {
       steps {
         script {
           ghaf_robot_test('performance')
+        }
+      }
+    }
+    stage('Turn off') {
+      steps {
+        script {
+          ghaf_robot_test('turnoff')
         }
       }
     }
