@@ -142,33 +142,48 @@ pipeline {
             println "Missing DEVICE_CONFIG_NAME parameter"
             sh "exit 1"
           }
-          if(["orin-agx"].contains(params.DEVICE_CONFIG_NAME)) {
+          // Determine the device name
+          if(params.DEVICE_CONFIG_NAME == "orin-agx") {
             env.DEVICE_NAME = 'OrinAGX1'
-            env.DEVICE_TAG = 'orin-agx'
-          } else if(["orin-nx"].contains(params.DEVICE_CONFIG_NAME)) {
+          } else if(params.DEVICE_CONFIG_NAME == "orin-nx") {
             env.DEVICE_NAME = 'OrinNX1'
-            env.DEVICE_TAG = 'orin-nx'
-          } else if(["lenovo-x1"].contains(params.DEVICE_CONFIG_NAME)) {
+          } else if(params.DEVICE_CONFIG_NAME == "lenovo-x1") {
             env.DEVICE_NAME = 'LenovoX1-2'
-            env.DEVICE_TAG = 'lenovo-x1'
+          } else if(params.DEVICE_CONFIG_NAME == "nuc") {
+            env.DEVICE_NAME = 'NUC1'
+          } else if(params.DEVICE_CONFIG_NAME == "riscv") {
+            env.DEVICE_NAME = 'Polarfire1'
           } else {
             println "Error: unsupported device config '${params.DEVICE_CONFIG_NAME}'"
             sh "exit 1"
           }
-          hub_serial = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'usbhub_serial')
-          mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${hub_serial}; sleep 10"
-          unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${hub_serial}"
+          // Determine mount commands
+          if(params.DEVICE_CONFIG_NAME == "riscv") {
+            muxport = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'usb_sd_mux_port')
+            dgrep = 'sdmux'
+            mount_cmd = "/run/wrappers/bin/sudo usbsdmux ${muxport} host; sleep 10"
+            unmount_cmd = "/run/wrappers/bin/sudo usbsdmux ${muxport} dut"
+          } else {
+            serial = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'usbhub_serial')
+            dgrep = 'PSSD'
+            mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${serial}; sleep 10"
+            unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${serial}"
+          }
+          env.DEVICE_TAG = params.DEVICE_CONFIG_NAME
           // Mount the target disk
           sh "${mount_cmd}"
           // Read the device name
-          dev = run_cmd("lsblk -o model,name | grep 'PSSD' | rev | cut -d ' ' -f 1 | rev | grep .")
+          dev = run_cmd("lsblk -o model,name | grep '${dgrep}' | rev | cut -d ' ' -f 1 | rev | grep .")
           println "Using device '$dev'"
-          if(["lenovo-x1"].contains(params.DEVICE_CONFIG_NAME)) {
+          // Wipe possible ZFS leftovers, more details here:
+          // https://github.com/tiiuae/ghaf/blob/454b18bc/packages/installer/ghaf-installer.sh#L75
+          // TODO: use ghaf flashing scripts or installers?
+          if(params.DEVICE_CONFIG_NAME == "lenovo-x1") {
             echo "Wiping filesystem..."
-            def SECTOR = 512
-            def MIB_TO_SECTORS = 20480
+            SECTOR = 512
+            MIB_TO_SECTORS = 20480
             // Disk size in 512-byte sectors
-            def SECTORS = sh(script: "/run/wrappers/bin/sudo blockdev --getsz /dev/${dev}", returnStdout: true).trim()
+            SECTORS = sh(script: "/run/wrappers/bin/sudo blockdev --getsz /dev/${dev}", returnStdout: true).trim()
             // Unmount possible mounted filesystems
             sh "sync; /run/wrappers/bin/sudo umount -q /dev/${dev}* || true"
             // Wipe first 10MiB of disk
