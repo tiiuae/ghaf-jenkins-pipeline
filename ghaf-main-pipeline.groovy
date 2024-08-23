@@ -52,8 +52,7 @@ pipeline {
             utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'archive')
             utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'archive')
             utils.nix_build('.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64', 'archive')
-            // Build, but don't archive the build results:
-            utils.nix_build('.#packages.x86_64-linux.generic-x86_64-debug')
+            utils.nix_build('.#packages.x86_64-linux.generic-x86_64-debug', 'archive')
             utils.nix_build('.#packages.x86_64-linux.doc')
           }
         }
@@ -80,6 +79,7 @@ pipeline {
             utils.ghaf_hw_test('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'orin-nx', jenkins_url)
             utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'orin-nx', jenkins_url)
             utils.ghaf_hw_test('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'lenovo-x1', jenkins_url)
+            utils.ghaf_hw_test('.#packages.x86_64-linux.generic-x86_64-debug', 'nuc', jenkins_url)
           }
         }
       }
