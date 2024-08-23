@@ -32,6 +32,11 @@ def ghaf_robot_test(String testname='boot') {
   if (!env.DEVICE_NAME) {
     sh "echo 'DEVICE_NAME not set'; exit 1"
   }
+  if (testname == 'turnoff') {
+    env.INCLUDE_TEST_TAGS = "${testname}"
+  } else {
+    env.INCLUDE_TEST_TAGS = "${testname}AND${env.DEVICE_TAG}"
+  }
   // TODO: do we really need credentials to access the target devices?
   // Target devices are connected to the testagent, which itself is
   // only available over a private network. What is the risk
@@ -44,13 +49,8 @@ def ghaf_robot_test(String testname='boot') {
     string(credentialsId: 'testagent-plug-pass', variable: 'PLUG_PASS'),
     string(credentialsId: 'testagent-switch-token', variable: 'SW_TOKEN'),
     string(credentialsId: 'testagent-switch-secret', variable: 'SW_SECRET'),
-  ]) {
-    dir('Robot-Framework/test-suites') {
-      if (testname == 'turnoff') {
-        env.INCLUDE_TEST_TAGS = "${testname}"
-      } else {
-        env.INCLUDE_TEST_TAGS = "${testname}AND${env.DEVICE_TAG}"
-      }
+    ]) {
+    dir("Robot-Framework/test-suites/${testname}") {
       sh 'rm -f *.png output.xml report.html log.html'
       // On failure, continue the pipeline execution
       catchError(stageResult: 'FAILURE', buildResult: 'FAILURE') {
@@ -61,6 +61,7 @@ def ghaf_robot_test(String testname='boot') {
         sh '''
           nix run .#ghaf-robot -- \
             -v DEVICE:$DEVICE_NAME \
+            -v DEVICE_TYPE:$DEVICE_TAG \
             -v LOGIN:ghaf \
             -v PASSWORD:$DUT_PASS \
             -v PLUG_USERNAME:ville-pekka.juntunen@unikie.com \
@@ -68,13 +69,8 @@ def ghaf_robot_test(String testname='boot') {
             -v SWITCH_TOKEN:$SW_TOKEN \
             -v SWITCH_SECRET:$SW_SECRET \
             -v BUILD_ID:${BUILD_NUMBER} \
-            -i $INCLUDE_TEST_TAGS .
+            -i $INCLUDE_TEST_TAGS ..
         '''
-        // Move the test output (if any) to a subdirectory
-        sh """
-          rm -fr $testname; mkdir -p $testname
-          mv -f *.png output.xml report.html log.html $testname/ || true
-        """
         if (testname == 'boot') {
           // Set an environment variable to indicate boot test passed
           env.BOOT_PASSED = 'true'
@@ -83,7 +79,6 @@ def ghaf_robot_test(String testname='boot') {
     }
   }
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -98,18 +93,19 @@ pipeline {
           extensions: [cleanBeforeCheckout()],
           userRemoteConfigs: [[url: REPO_URL]]
         )
-        script {
-          sh 'rm -f Robot-Framework/config/*.json'
-          sh 'ln -sv /etc/jenkins/test_config.json Robot-Framework/config'
-          sh """
-            echo { \\\"Job\\\": \\\"${BUILD_NUMBER}\\\" } > Robot-Framework/config/${BUILD_NUMBER}.json
-          """
-        }
       }
     }
     stage('Setup') {
       steps {
         script {
+          env.TEST_CONFIG_DIR = 'Robot-Framework/test-suites/config'
+          sh """
+            mkdir -p ${TEST_CONFIG_DIR}
+            rm -f ${TEST_CONFIG_DIR}/*.json
+            ln -sv /etc/jenkins/test_config.json ${env.TEST_CONFIG_DIR}
+            echo { \\\"Job\\\": \\\"${BUILD_NUMBER}\\\" } > ${TEST_CONFIG_DIR}/${BUILD_NUMBER}.json
+            ls -la ${TEST_CONFIG_DIR}
+          """
           if(!params.containsKey('DESC')) {
             println "Missing DESC parameter, skip setting description"
           } else {
