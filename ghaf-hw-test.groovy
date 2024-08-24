@@ -50,10 +50,10 @@ def ghaf_robot_test(String testname='boot') {
     string(credentialsId: 'testagent-switch-token', variable: 'SW_TOKEN'),
     string(credentialsId: 'testagent-switch-secret', variable: 'SW_SECRET'),
     ]) {
-    dir("Robot-Framework/test-suites/${testname}") {
+    dir("Robot-Framework/test-suites") {
       sh 'rm -f *.png output.xml report.html log.html'
       // On failure, continue the pipeline execution
-      catchError(stageResult: 'FAILURE', buildResult: 'FAILURE') {
+      try {
         // Pass the secrets to the shell as environment variables, as we
         // don't want Groovy to interpolate them. Similary, we pass
         // other variables as environment variables to shell.
@@ -69,12 +69,21 @@ def ghaf_robot_test(String testname='boot') {
             -v SWITCH_TOKEN:$SW_TOKEN \
             -v SWITCH_SECRET:$SW_SECRET \
             -v BUILD_ID:${BUILD_NUMBER} \
-            -i $INCLUDE_TEST_TAGS ..
+            -i $INCLUDE_TEST_TAGS .
         '''
         if (testname == 'boot') {
           // Set an environment variable to indicate boot test passed
           env.BOOT_PASSED = 'true'
         }
+      } catch (Exception e) {
+        currentBuild.result = "FAILURE"
+        unstable("FAILED '${testname}': ${e.toString()}")
+      } finally {
+        // Move the test output (if any) to a subdirectory
+        sh """
+          rm -fr $testname; mkdir -p $testname
+          mv -f *.png output.xml report.html log.html $testname/ || true
+        """
       }
     }
   }
@@ -98,7 +107,7 @@ pipeline {
     stage('Setup') {
       steps {
         script {
-          env.TEST_CONFIG_DIR = 'Robot-Framework/test-suites/config'
+          env.TEST_CONFIG_DIR = 'Robot-Framework/config'
           sh """
             mkdir -p ${TEST_CONFIG_DIR}
             rm -f ${TEST_CONFIG_DIR}/*.json
