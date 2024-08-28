@@ -145,6 +145,7 @@ pipeline {
             utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'orin-nx', jenkins_url, testset)
             utils.ghaf_hw_test('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'lenovo-x1', jenkins_url, testset)
             utils.ghaf_hw_test('.#packages.x86_64-linux.generic-x86_64-debug', 'nuc', jenkins_url, testset)
+            utils.ghaf_hw_test('.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64', 'riscv', jenkins_url, testset)
           }
         }
       }
