@@ -136,7 +136,7 @@ def find_img_relpath(String flakeref, String subdir) {
       cd ${subdir} && \
       find -L ${flakeref_trimmed} -regex '.*\\.\\(img\\|raw\\|zst\\|iso\\)\$' -print -quit
     """, returnStdout: true).trim()
-  if(!img_relpath) {
+  if (!img_relpath) {
     // Error out stopping the pipeline execution if image was not found
     println "Error: no image found from '${subdir}/${flakeref_trimmed}'"
     sh "exit 1"
@@ -169,9 +169,9 @@ def ghaf_hw_test(String flakeref, String device_config, String jenkins_url, Stri
   description = "Triggered by ${build_href}<br>(${flakeref_short})"
   // Trigger a build in 'ghaf-hw-test' pipeline.
   // 'build' step is documented in https://plugins.jenkins.io/pipeline-build-step/
-  build(
+  job = build(
     job: "ghaf-hw-test",
-    propagate: true,
+    propagate: false,
     parameters: [
       string(name: "LABEL", value: "testagent"),
       string(name: "DEVICE_CONFIG_NAME", value: "$device_config"),
@@ -181,6 +181,10 @@ def ghaf_hw_test(String flakeref, String device_config, String jenkins_url, Stri
     ],
     wait: true,
   )
+  if (job.result != "SUCCESS") {
+    untable("FAILED: testset ${testset} on ${device_config}")
+    currentBuild.result = "FAILURE"
+  }
 }
 
 return this

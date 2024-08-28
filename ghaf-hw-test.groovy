@@ -111,7 +111,7 @@ pipeline {
           sh """
             mkdir -p ${TEST_CONFIG_DIR}
             rm -f ${TEST_CONFIG_DIR}/*.json
-            ln -sv /etc/jenkins/test_config.json ${env.TEST_CONFIG_DIR}
+            ln -sv ${CONF_FILE_PATH} ${TEST_CONFIG_DIR}
             echo { \\\"Job\\\": \\\"${BUILD_NUMBER}\\\" } > ${TEST_CONFIG_DIR}/${BUILD_NUMBER}.json
             ls -la ${TEST_CONFIG_DIR}
           """
