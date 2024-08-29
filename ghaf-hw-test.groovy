@@ -133,7 +133,26 @@ pipeline {
             sh "exit 1"
           }
           sh "rm -fr ${TMP_IMG_DIR}"
-          sh "wget -nv --show-progress --progress=dot:giga -P ${TMP_IMG_DIR} ${params.IMG_URL}"
+          // Wget occasionally fails due to a failure in name lookup. Below is a
+          // hack to force re-try a few times before aborting. Wget options, such
+          // as --tries, --waitretry, --retry-connrefused, etc. do not help in case
+          // the failure is due to an issue in name resolution which is considered
+          // a fatal error. Therefore, we need to add the below retry loop.
+          // TODO: remove the below re-try loop when test network DNS works
+          // reliably.
+          sh """
+            retry=1
+            max_retry=3
+            while ! wget -nv --show-progress --progress=dot:giga -P ${TMP_IMG_DIR} ${params.IMG_URL};
+            do
+              if (( \$retry >= \$max_retry )); then
+                echo "wget failed after \$retry retries"
+                exit 1
+              fi
+              retry=\$(( \$retry + 1 ))
+              sleep 5
+            done
+          """
           img_relpath = run_cmd("find ${TMP_IMG_DIR} -type f -print -quit | grep .")
           println "Downloaded image to workspace: ${img_relpath}"
           // Uncompress, keeping only the decompressed image file
