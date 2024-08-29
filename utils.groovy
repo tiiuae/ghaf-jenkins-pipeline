@@ -146,8 +146,7 @@ def find_img_relpath(String flakeref, String subdir) {
   return img_relpath
 }
 
-def ghaf_hw_test(String flakeref, String device_config, String jenkins_url, String testset='_boot_')
-  {
+def ghaf_hw_test(String flakeref, String device_config, String jenkins_url, String testset='_boot_') {
   testagent_nodes = nodesByLabel(label: 'testagent', offline: false)
   if (!testagent_nodes) {
     println "Warning: Skipping boot test '$flakeref', no test agents online"
@@ -181,8 +180,9 @@ def ghaf_hw_test(String flakeref, String device_config, String jenkins_url, Stri
     ],
     wait: true,
   )
+  println "ghaf-hw-test result (${device_config}:${testset}): ${job.result}"
   if (job.result != "SUCCESS") {
-    untable("FAILED: testset ${testset} on ${device_config}")
+    unstable("FAILED: ${device_config} ${testset}")
     currentBuild.result = "FAILURE"
   }
 }
