@@ -163,8 +163,9 @@ def ghaf_hw_test(String flakeref, String device_config, String jenkins_url, Stri
   img_url = "${jenkins_url}/${remote_path}/${imgdir}"
   build_url = "${jenkins_url}/job/${env.JOB_NAME}/${env.BUILD_ID}"
   build_href = "<a href=\"${build_url}\">${env.JOB_NAME}#${env.BUILD_ID}</a>"
+  flakeref_trimmed = "${flakeref_trim(flakeref)}"
   // 'short' flakeref: everything after the last occurence of '.' (if any)
-  flakeref_short = flakeref_trim(flakeref).replaceAll(/.*\.+/,"")
+  flakeref_short = flakeref_trimmed.replaceAll(/.*\.+/,"")
   description = "Triggered by ${build_href}<br>(${flakeref_short})"
   // Trigger a build in 'ghaf-hw-test' pipeline.
   // 'build' step is documented in https://plugins.jenkins.io/pipeline-build-step/
@@ -181,6 +182,16 @@ def ghaf_hw_test(String flakeref, String device_config, String jenkins_url, Stri
     wait: true,
   )
   println "ghaf-hw-test result (${device_config}:${testset}): ${job.result}"
+  // Copy test results from agent to master to 'test-results' directory
+  copyArtifacts(
+      projectName: "ghaf-hw-test",
+      selector: specific("${job.number}"),
+      target: "ghaf-hw-test/${flakeref_trimmed}/test-results",
+  )
+  // Archive the test results
+  archive_artifacts("ghaf-hw-test")
+  // If the test job failed, mark the current step unstable and set
+  // the final build result failed, but continue the pipeline execution.
   if (job.result != "SUCCESS") {
     unstable("FAILED: ${device_config} ${testset}")
     currentBuild.result = "FAILURE"
