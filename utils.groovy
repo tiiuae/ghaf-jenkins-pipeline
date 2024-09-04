@@ -68,7 +68,7 @@ def nix_build(String flakeref, String subdir=null) {
     if (img_relpath) {
       target_path = "${subdir}/${img_relpath}"
       sig_path = "sig/${img_relpath}.sig"
-      sign_file(target_path, "INT-lenovo-x1-carbon-gen11-debug-x86-64-linux", sig_path)
+      sign_file(target_path, sig_path)
       // Archive signature file alongside the target image
       archive_artifacts("sig")
     } else {
@@ -118,9 +118,8 @@ def provenance(String flakeref, String outdir, String flakeref_trimmed) {
     opts = "--recursive --out ${outdir}/provenance.json"
     sh "provenance ${flakeref} ${opts}"
     // Sign the provenance
-    cert="INT-lenovo-x1-carbon-gen11-debug-x86-64-linux"
     target_path = "${outdir}/provenance.json"
-    sign_file(target_path, cert, "${target_path}.sig")
+    sign_file(target_path, "${target_path}.sig")
 }
 
 def sbomnix(String tool, String flakeref) {
@@ -161,10 +160,10 @@ def find_img_relpath(String flakeref, String subdir, String abort_on_error="true
   return img_relpath
 }
 
-def sign_file(String path, String cert, String sigfile) {
+def sign_file(String path, String sigfile, String cert="INT-Ghaf-Devenv-Common") {
   println "sign_file: ${path} ### ${cert} ### ${sigfile}"
   sh(
-    // 'sign' command from: https://github.com/tiiuae/ci-yubi
+    // See the 'sign' command at: https://github.com/tiiuae/ci-yubi
     script: """
       mkdir -p \$(dirname '${sigfile}') || true
       sign --path=${path} --cert=${cert} --sigfile=${sigfile}
