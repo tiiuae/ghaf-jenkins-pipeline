@@ -162,12 +162,16 @@ def find_img_relpath(String flakeref, String subdir, String abort_on_error="true
 
 def sign_file(String path, String sigfile, String cert="INT-Ghaf-Devenv-Common") {
   println "sign_file: ${path} ### ${cert} ### ${sigfile}"
-  sh(
-    // See the 'sign' command at: https://github.com/tiiuae/ci-yubi
-    script: """
-      mkdir -p \$(dirname '${sigfile}') || true
-      sign --path=${path} --cert=${cert} --sigfile=${sigfile}
+  try {
+    sh(
+      // See the 'sign' command at: https://github.com/tiiuae/ci-yubi
+      script: """
+        mkdir -p \$(dirname '${sigfile}') || true
+        sign --path=${path} --cert=${cert} --sigfile=${sigfile}
     """, returnStdout: true).trim()
+  } catch (Exception e) {
+    println "Warning: signing failed: sigfile will not be generated for: ${path}"
+  }
 }
 
 def ghaf_hw_test(String flakeref, String device_config, String jenkins_url, String testset='_boot_') {
