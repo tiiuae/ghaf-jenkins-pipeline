@@ -27,7 +27,7 @@ def run_rclone(String opts) {
   """
 }
 
-def archive_artifacts(String subdir) {
+def archive_artifacts(String subdir, String target="") {
   if (!subdir) {
     println "Warning: skipping archive, subdir not set"
     return
@@ -37,7 +37,7 @@ def archive_artifacts(String subdir) {
     println "Warning: skipping archive, ARTIFACTS_REMOTE_PATH not set"
     return
   }
-  run_rclone("copy -L ${subdir}/ :webdav:/${env.ARTIFACTS_REMOTE_PATH}/")
+  run_rclone("copy -L ${subdir}/${target} :webdav:/${env.ARTIFACTS_REMOTE_PATH}/${target}")
   href="/artifacts/${env.ARTIFACTS_REMOTE_PATH}/"
   currentBuild.description = "<a href=\"${href}\">📦 Artifacts</a>"
 }

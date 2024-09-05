@@ -120,6 +120,7 @@ pipeline {
 
                   if (drvPath) {
                     stage("Build (${target})") {
+                      def opts = ""
                       if (it['archive']) {
                         opts = "--out-link archive/${target}"
                       } else {
@@ -191,6 +192,15 @@ pipeline {
                       }
                     }
 
+                    if (it['archive']) {
+                      stage("Archive (${target})") {
+                        script {
+                          utils.archive_artifacts("archive", target) 
+                          utils.archive_artifacts("scs", target) 
+                        }
+                      } 
+                    }
+
                   }
                 }
               }
@@ -207,16 +217,5 @@ pipeline {
         }
       }
     }
-
-    stage('Archive artifacts') {
-      steps {
-        script {
-          // Archival cannot happen in parallel
-          utils.archive_artifacts('archive') 
-          utils.archive_artifacts('scs') 
-        }
-      }
-    }
-
   }
 }
