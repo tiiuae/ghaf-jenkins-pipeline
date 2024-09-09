@@ -137,15 +137,14 @@ pipeline {
       steps {
         dir(WORKDIR) {
           script {
-            jenkins_url = "https://ghaf-jenkins-controller-dev.northeurope.cloudapp.azure.com"
             testset = "_boot_bat_perf_"
-            utils.ghaf_hw_test('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'orin-agx', jenkins_url, testset)
-            utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'orin-agx', jenkins_url, testset)
-            utils.ghaf_hw_test('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'orin-nx', jenkins_url, testset)
-            utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'orin-nx', jenkins_url, testset)
-            utils.ghaf_hw_test('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'lenovo-x1', jenkins_url, testset)
-            utils.ghaf_hw_test('.#packages.x86_64-linux.generic-x86_64-debug', 'nuc', jenkins_url, testset)
-            utils.ghaf_hw_test('.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64', 'riscv', jenkins_url, testset)
+            utils.ghaf_hw_test('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'orin-agx', testset)
+            utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'orin-agx', testset)
+            utils.ghaf_hw_test('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'orin-nx', testset)
+            utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'orin-nx', testset)
+            utils.ghaf_hw_test('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'lenovo-x1', testset)
+            utils.ghaf_hw_test('.#packages.x86_64-linux.generic-x86_64-debug', 'nuc', testset)
+            utils.ghaf_hw_test('.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64', 'riscv', testset)
           }
         }
       }
