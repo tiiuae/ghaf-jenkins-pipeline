@@ -174,22 +174,26 @@ def sign_file(String path, String sigfile, String cert="INT-Ghaf-Devenv-Common")
   }
 }
 
-def ghaf_hw_test(String flakeref, String device_config, String jenkins_url, String testset='_boot_') {
+def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_') {
   testagent_nodes = nodesByLabel(label: 'testagent', offline: false)
   if (!testagent_nodes) {
-    println "Warning: Skipping boot test '$flakeref', no test agents online"
+    println "Warning: Skipping HW test '$flakeref', no test agents online"
     unstable("No test agents online")
     return
   }
   if (!env.ARTIFACTS_REMOTE_PATH) {
-    println "Warning: skipping boot_test '$flakeref', ARTIFACTS_REMOTE_PATH not set"
+    println "Warning: skipping HW '$flakeref', ARTIFACTS_REMOTE_PATH not set"
+    return
+  }
+  if (!env.JENKINS_URL) {
+    println "Warning: skipping HW '$flakeref', JENKINS_URL not set"
     return
   }
   // Compose the image URL; testagent will need this URL to download the image
   imgdir = find_img_relpath(flakeref, 'archive')
   remote_path = "artifacts/${env.ARTIFACTS_REMOTE_PATH}"
-  img_url = "${jenkins_url}/${remote_path}/${imgdir}"
-  build_url = "${jenkins_url}/job/${env.JOB_NAME}/${env.BUILD_ID}"
+  img_url = "${env.JENKINS_URL}/${remote_path}/${imgdir}"
+  build_url = "${env.JENKINS_URL}/job/${env.JOB_NAME}/${env.BUILD_ID}"
   build_href = "<a href=\"${build_url}\">${env.JOB_NAME}#${env.BUILD_ID}</a>"
   flakeref_trimmed = "${flakeref_trim(flakeref)}"
   // 'short' flakeref: everything after the last occurence of '.' (if any)
