@@ -108,11 +108,16 @@ pipeline {
       steps {
         script {
           env.TEST_CONFIG_DIR = 'Robot-Framework/config'
+          if(!params.getOrDefault('TARGET', null)) {
+            println "Missing TARGET parameter"
+            sh "exit 1"
+          }
+          println "Using TARGET: ${params.TARGET}"
           sh """
             mkdir -p ${TEST_CONFIG_DIR}
             rm -f ${TEST_CONFIG_DIR}/*.json
             ln -sv ${CONF_FILE_PATH} ${TEST_CONFIG_DIR}
-            echo { \\\"Job\\\": \\\"${BUILD_NUMBER}\\\" } > ${TEST_CONFIG_DIR}/${BUILD_NUMBER}.json
+            echo { \\\"Job\\\": \\\"${params.TARGET}\\\" } > ${TEST_CONFIG_DIR}/${BUILD_NUMBER}.json
             ls -la ${TEST_CONFIG_DIR}
           """
           if(!params.containsKey('DESC')) {
@@ -265,13 +270,14 @@ pipeline {
   post {
     always {
       // Archive Robot-Framework results as artifacts
-      archiveArtifacts allowEmptyArchive: true, artifacts: 'Robot-Framework/test-suites/**/*.html, Robot-Framework/test-suites/**/*.xml'
+      archiveArtifacts allowEmptyArchive: true, artifacts: 'Robot-Framework/test-suites/**/*.html, Robot-Framework/test-suites/**/*.xml, Robot-Framework/test-suites/**/*.png'
       // Publish all results under Robot-Framework/test-suites subfolders
       step(
         [$class: 'RobotPublisher',
           archiveDirName: 'robot-plugin',
           outputPath: 'Robot-Framework/test-suites',
           outputFileName: '**/output.xml',
+          otherFiles: '**/*.png',
           disableArchiveOutput: false,
           reportFileName: '**/report.html',
           logFileName: '**/log.html',
