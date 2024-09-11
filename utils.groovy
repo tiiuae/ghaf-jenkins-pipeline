@@ -213,6 +213,7 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
       string(name: "IMG_URL", value: "$img_url"),
       string(name: "DESC", value: "$description"),
       string(name: "TESTSET", value: "$testset"),
+      string(name: "TARGET", value: "$flakeref_trimmed"),
     ],
     wait: true,
   )
