@@ -3,6 +3,8 @@
 // SPDX-FileCopyrightText: 2022-2024 TII (SSRC) and the Ghaf contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import groovy.json.JsonOutput
+
 ////////////////////////////////////////////////////////////////////////////////
 
 def flakeref_trim(String flakeref) {
@@ -112,6 +114,7 @@ def provenance(String flakeref, String outdir, String flakeref_trimmed) {
           "ref": "${env.GIT_COMMIT}"
         },
         "job": "${env.JOB_NAME}",
+        "jobParams": ${JsonOutput.toJson(params)},
         "buildRun": "${env.BUILD_ID}"
       }
     """
