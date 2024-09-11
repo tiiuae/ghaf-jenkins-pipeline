@@ -182,11 +182,11 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
     return
   }
   if (!env.ARTIFACTS_REMOTE_PATH) {
-    println "Warning: skipping HW '$flakeref', ARTIFACTS_REMOTE_PATH not set"
+    println "Warning: skipping HW test '$flakeref', ARTIFACTS_REMOTE_PATH not set"
     return
   }
   if (!env.JENKINS_URL) {
-    println "Warning: skipping HW '$flakeref', JENKINS_URL not set"
+    println "Warning: skipping HW test '$flakeref', JENKINS_URL not set"
     return
   }
   // Compose the image URL; testagent will need this URL to download the image
@@ -227,6 +227,9 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
   if (job.result != "SUCCESS") {
     unstable("FAILED: ${device_config} ${testset}")
     currentBuild.result = "FAILURE"
+    // Add a link to failed test job(s) on the calling pipeline
+    test_href = "<a href=\"${job.absoluteUrl}\">⛔ ${flakeref_short}</a>"
+    currentBuild.description = "${currentBuild.description}<br>${test_href}"
   }
 }
 
