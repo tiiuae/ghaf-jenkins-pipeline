@@ -40,8 +40,17 @@ def archive_artifacts(String subdir) {
     return
   }
   run_rclone("copy -L ${subdir}/ :webdav:/${env.ARTIFACTS_REMOTE_PATH}/")
-  href="/artifacts/${env.ARTIFACTS_REMOTE_PATH}/"
-  currentBuild.description = "<a href=\"${href}\">📦 Artifacts</a>"
+  // Add a link to Artifacts on the build description if it isn't added yet
+  href = "/artifacts/${env.ARTIFACTS_REMOTE_PATH}/"
+  artifacts_anchor = "<a href=\"${href}\">📦 Artifacts</a>"
+  if (!currentBuild.description) {
+    // Set the description if it wasn't set earlier
+    currentBuild.description = "${artifacts_anchor}"
+  } else if (!currentBuild.description.contains(" Artifacts</a>")) {
+    // If the description is set, but does not contain the Artifacts link
+    // yet, place the Artifacts link on the top of the description
+    currentBuild.description = "${artifacts_anchor}${currentBuild.description}"
+  }
 }
 
 def purge_artifacts(String remote_path) {
@@ -218,14 +227,6 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
     wait: true,
   )
   println "ghaf-hw-test result (${device_config}:${testset}): ${job.result}"
-  // Copy test results from agent to master to 'test-results' directory
-  copyArtifacts(
-      projectName: "ghaf-hw-test",
-      selector: specific("${job.number}"),
-      target: "ghaf-hw-test/${flakeref_trimmed}/test-results",
-  )
-  // Archive the test results
-  archive_artifacts("ghaf-hw-test")
   // If the test job failed, mark the current step unstable and set
   // the final build result failed, but continue the pipeline execution.
   if (job.result != "SUCCESS") {
@@ -235,6 +236,14 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
     test_href = "<a href=\"${job.absoluteUrl}\">⛔ ${flakeref_short}</a>"
     currentBuild.description = "${currentBuild.description}<br>${test_href}"
   }
+  // Copy test results from agent to controller to 'test-results' directory
+  copyArtifacts(
+      projectName: "ghaf-hw-test",
+      selector: specific("${job.number}"),
+      target: "ghaf-hw-test/${flakeref_trimmed}/test-results",
+  )
+  // Archive the test results
+  archive_artifacts("ghaf-hw-test")
 }
 
 return this
