@@ -8,8 +8,23 @@
 def REPO_URL = 'https://github.com/tiiuae/ghaf/'
 def WORKDIR  = 'ghaf'
 
-// Utils module will be loaded in the first pipeline stage
-def utils = null
+// Which attribute of the flake to evaluate for building
+def flakeAttr = ".#hydraJobs"
+
+// Target names must be direct children of the above
+def targets = [
+  [ target: "docs.aarch64-linux" ],
+  [ target: "docs.x86_64-linux" ],
+  [ target: "generic-x86_64-debug.x86_64-linux" ],
+  [ target: "lenovo-x1-carbon-gen11-debug.x86_64-linux" ],
+  [ target: "microchip-icicle-kit-debug-from-x86_64.x86_64-linux" ],
+  [ target: "nvidia-jetson-orin-agx-debug.aarch64-linux" ],
+  [ target: "nvidia-jetson-orin-agx-debug-from-x86_64.x86_64-linux" ],
+  [ target: "nvidia-jetson-orin-nx-debug.aarch64-linux" ],
+  [ target: "nvidia-jetson-orin-nx-debug-from-x86_64.x86_64-linux" ],
+]
+
+target_jobs = [:]
 
 properties([
   githubProjectProperty(displayName: '', projectUrlStr: REPO_URL),
@@ -48,7 +63,6 @@ properties([
 pipeline {
   agent { label 'built-in' }
   options {
-    disableConcurrentBuilds()
     timestamps ()
     buildDiscarder(logRotator(numToKeepStr: '100'))
   }
@@ -65,7 +79,6 @@ pipeline {
         sh 'if [ -z "$BUILD_NUMBER" ]; then exit 1; fi'
         // Fail if PR was closed (but not merged)
         sh 'if [ "$GITHUB_PR_STATE" = "CLOSED" ]; then exit 1; fi'
-        script { utils = load "utils.groovy" }
       }
     }
     stage('Checkout') {
@@ -121,28 +134,44 @@ pipeline {
         }
       }
     }
-    stage('Build x86_64') {
+
+    stage('Evaluate') {
       steps {
         dir(WORKDIR) {
           script {
-            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64')
-            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64')
-            utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug')
-            utils.nix_build('.#packages.x86_64-linux.generic-x86_64-debug')
-            utils.nix_build('.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64')
-            utils.nix_build('.#packages.x86_64-linux.doc')
+            // nix-eval-jobs is used to evaluate the given flake attribute, and output target information into jobs.json
+            sh "nix-eval-jobs --gc-roots-dir gcroots --flake ${flakeAttr} --force-recurse > jobs.json"
+
+            // jobs.json is parsed using jq. target's name and derivation path are appended as space separated row into jobs.txt 
+            sh "jq -r '.attr + \" \" + .drvPath' < jobs.json > jobs.txt"
+
+            targets.each {
+              def target = it['target']
+
+              // row that matches this target is grepped from jobs.txt, extracting the pre-evaluated derivation path
+              def drvPath = sh (script: "cat jobs.txt | grep ${target} | cut -d ' ' -f 2", returnStdout: true).trim()
+
+              target_jobs[target] = {
+                stage("${target}") {
+                  catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    if (drvPath) {
+                      sh "nix build -L ${drvPath}\\^*"
+                    } else {
+                      error("Target \"${target}\" was not found in ${flakeAttr}")
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     }
-    stage('Build aarch64') {
+
+    stage('Build targets') {
       steps {
-        dir(WORKDIR) {
-          script {
-            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug')
-            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug')
-            utils.nix_build('.#packages.aarch64-linux.doc')
-          }
+        script {
+          parallel target_jobs
         }
       }
     }
