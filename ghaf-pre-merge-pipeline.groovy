@@ -153,12 +153,18 @@ pipeline {
 
               target_jobs[target] = {
                 stage("${target}") {
-                  catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                  try {
                     if (drvPath) {
-                      sh "nix build -L ${drvPath}\\^*"
+                      sh "nix build --no-link -L ${drvPath}\\^*"
                     } else {
                       error("Target \"${target}\" was not found in ${flakeAttr}")
                     }
+                  } catch (InterruptedException e) {
+                    throw e
+                  } catch (Exception e) {
+                    unstable("FAILED: ${target}")
+                    currentBuild.result = "FAILURE"
+                    println "Error: ${e.toString()}"
                   }
                 }
               }
