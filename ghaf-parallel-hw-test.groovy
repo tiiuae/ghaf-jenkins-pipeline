@@ -8,7 +8,6 @@
 def REPO_URL = 'https://github.com/tiiuae/ci-test-automation/'
 def DEF_LABEL = 'testagent'
 def TMP_IMG_DIR = 'image'
-def TMP_SIG_DIR = 'signature'
 def CONF_FILE_PATH = '/etc/jenkins/test_config.json'
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -99,7 +98,7 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scmGit(
-          branches: [[name: 'main']],
+          branches: [[name: 'switchbot']],
           extensions: [cleanBeforeCheckout()],
           userRemoteConfigs: [[url: REPO_URL]]
         )
@@ -161,11 +160,6 @@ pipeline {
           """
           img_relpath = run_cmd("find ${TMP_IMG_DIR} -type f -print -quit | grep .")
           println "Downloaded image to workspace: ${img_relpath}"
-          // Verify signature using the tooling from: https://github.com/tiiuae/ci-yubi
-          sh "wget -nv -P ${TMP_SIG_DIR} ${params.IMG_URL}.sig"
-          sig_relpath = run_cmd("find ${TMP_SIG_DIR} -type f -print -quit | grep .")
-          println "Downloaded signature to workspace: ${sig_relpath}"
-          sh "nix run github:tiiuae/ci-yubi/bdb2dbf#verify -- --path ${img_relpath} --sigfile ${sig_relpath}"
           // Uncompress, keeping only the decompressed image file
           if(img_relpath.endsWith("zst")) {
             sh "zstd -dfv ${img_relpath} && rm ${img_relpath}"
@@ -187,7 +181,7 @@ pipeline {
           } else if(params.DEVICE_CONFIG_NAME == "orin-nx") {
             env.DEVICE_NAME = 'OrinNX1'
           } else if(params.DEVICE_CONFIG_NAME == "lenovo-x1") {
-            env.DEVICE_NAME = 'LenovoX1-2'
+            env.DEVICE_NAME = 'LenovoX1-1'
           } else if(params.DEVICE_CONFIG_NAME == "nuc") {
             env.DEVICE_NAME = 'NUC1'
           } else if(params.DEVICE_CONFIG_NAME == "riscv") {
@@ -204,7 +198,7 @@ pipeline {
             unmount_cmd = "/run/wrappers/bin/sudo usbsdmux ${muxport} dut"
           } else {
             serial = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'usbhub_serial')
-            dgrep = 'PSSD'
+            //dgrep = 'PSSD'
             mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${serial}; sleep 10"
             unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${serial}"
           }
@@ -212,7 +206,8 @@ pipeline {
           // Mount the target disk
           sh "${mount_cmd}"
           // Read the device name
-          dev = run_cmd("lsblk -o model,name | grep '${dgrep}' | rev | cut -d ' ' -f 1 | rev | grep .")
+          dev = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'ext_drive_by-id')
+          //dev = run_cmd("lsblk -o model,name | grep '${dgrep}' | rev | cut -d ' ' -f 1 | rev | grep .")
           println "Using device '$dev'"
           // Wipe possible ZFS leftovers, more details here:
           // https://github.com/tiiuae/ghaf/blob/454b18bc/packages/installer/ghaf-installer.sh#L75
@@ -222,18 +217,18 @@ pipeline {
             SECTOR = 512
             MIB_TO_SECTORS = 20480
             // Disk size in 512-byte sectors
-            SECTORS = sh(script: "/run/wrappers/bin/sudo blockdev --getsz /dev/${dev}", returnStdout: true).trim()
+            SECTORS = sh(script: "/run/wrappers/bin/sudo blockdev --getsz /dev/disk/by-id/${dev}", returnStdout: true).trim()
             // Unmount possible mounted filesystems
-            sh "sync; /run/wrappers/bin/sudo umount -q /dev/${dev}* || true"
+            sh "sync; /run/wrappers/bin/sudo umount -q /dev/disk/by-id/${dev}* || true"
             // Wipe first 10MiB of disk
-            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=/dev/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} conv=fsync status=none"
+            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=/dev/disk/by-id/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} conv=fsync status=none"
             // Wipe last 10MiB of disk
-            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=/dev/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} seek=\$(( ${SECTORS} - ${MIB_TO_SECTORS} )) conv=fsync status=none"
+            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=/dev/disk/by-id/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} seek=\$(( ${SECTORS} - ${MIB_TO_SECTORS} )) conv=fsync status=none"
           }
           // Write the image
           img_relpath = run_cmd("find ${TMP_IMG_DIR} -type f -print -quit | grep .")
           println "Using image '$img_relpath'"
-          sh "/run/wrappers/bin/sudo dd if=${img_relpath} of=/dev/${dev} bs=1M status=progress conv=fsync"
+          sh "/run/wrappers/bin/sudo dd if=${img_relpath} of=/dev/disk/by-id/${dev} bs=1M status=progress conv=fsync"
           // Unmount
           sh "${unmount_cmd}"
         }
