@@ -165,6 +165,10 @@ pipeline {
           // env.IMG_WGET stores the path to image as downloaded from the remote
           env.IMG_WGET = run_wget(params.IMG_URL, TMP_IMG_DIR)
           println "Downloaded image to workspace: ${env.IMG_WGET}"
+          // Verify signature using the tooling from: https://github.com/tiiuae/ci-yubi
+          sig_path = run_wget("${params.IMG_URL}.sig", TMP_IMG_DIR)
+          println "Downloaded signature to workspace: ${sig_path}"
+          sh "nix run github:tiiuae/ci-yubi/bdb2dbf#verify -- --path ${env.IMG_WGET} --sigfile ${sig_path}"
           // Uncompress
           if(env.IMG_WGET.endsWith(".zst")) {
             sh "zstd -dfv ${env.IMG_WGET}"
