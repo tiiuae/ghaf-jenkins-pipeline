@@ -29,7 +29,7 @@ def run_rclone(String opts) {
   """
 }
 
-def archive_artifacts(String subdir) {
+def archive_artifacts(String subdir, String target="") {
   if (!subdir) {
     println "Warning: skipping archive, subdir not set"
     return
@@ -39,7 +39,7 @@ def archive_artifacts(String subdir) {
     println "Warning: skipping archive, ARTIFACTS_REMOTE_PATH not set"
     return
   }
-  run_rclone("copy -L ${subdir}/ :webdav:/${env.ARTIFACTS_REMOTE_PATH}/")
+  run_rclone("copy -L ${subdir}/${target} :webdav:/${env.ARTIFACTS_REMOTE_PATH}/${target}")
   // Add a link to Artifacts on the build description if it isn't added yet
   href = "/artifacts/${env.ARTIFACTS_REMOTE_PATH}/"
   artifacts_anchor = "<a href=\"${href}\">📦 Artifacts</a>"
@@ -244,6 +244,64 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
   )
   // Archive the test results
   archive_artifacts("ghaf-hw-test")
+}
+
+def ghaf_parallel_hw_test(String flakeref, String device_config, String testset='_boot_') {
+  testagent_nodes = nodesByLabel(label: "testagent_$device_config", offline: false)
+  if (!testagent_nodes) {
+    println "Warning: Skipping HW test '$flakeref', no test agents online"
+    unstable("No test agents online")
+    return
+  }
+  if (!env.ARTIFACTS_REMOTE_PATH) {
+    println "Warning: skipping HW test '$flakeref', ARTIFACTS_REMOTE_PATH not set"
+    return
+  }
+  if (!env.JENKINS_URL) {
+    println "Warning: skipping HW test '$flakeref', JENKINS_URL not set"
+    return
+  }
+  // Compose the image URL; testagent will need this URL to download the image
+  imgdir = find_img_relpath(flakeref, 'archive')
+  remote_path = "artifacts/${env.ARTIFACTS_REMOTE_PATH}"
+  img_url = "${env.JENKINS_URL}/${remote_path}/${imgdir}"
+  build_url = "${env.JENKINS_URL}/job/${env.JOB_NAME}/${env.BUILD_ID}"
+  build_href = "<a href=\"${build_url}\">${env.JOB_NAME}#${env.BUILD_ID}</a>"
+  flakeref_trimmed = "${flakeref_trim(flakeref)}"
+  description = "Triggered by ${build_href}<br>(${flakeref_trimmed})"
+  // Trigger a build in 'ghaf-parallel-hw-test' pipeline.
+  // 'build' step is documented in https://plugins.jenkins.io/pipeline-build-step/
+  job = build(
+    job: "ghaf-parallel-hw-test",
+    propagate: false,
+    parameters: [
+      string(name: "LABEL", value: "testagent_$device_config"),
+      string(name: "DEVICE_CONFIG_NAME", value: "$device_config"),
+      string(name: "IMG_URL", value: "$img_url"),
+      string(name: "DESC", value: "$description"),
+      string(name: "TESTSET", value: "$testset"),
+      string(name: "TARGET", value: "$flakeref_trimmed"),
+    ],
+    wait: true,
+  )
+  println "ghaf-parallel-hw-test result (${device_config}:${testset}): ${job.result}"
+  // If the test job failed, mark the current step unstable and set
+  // the final build result failed, but continue the pipeline execution.
+  if (job.result != "SUCCESS") {
+    unstable("FAILED: ${device_config} ${testset}")
+    currentBuild.result = "FAILURE"
+    // Add a link to failed test job(s) on the calling pipeline
+    test_href = "<a href=\"${job.absoluteUrl}\">⛔ ${flakeref_trimmed}</a>"
+    currentBuild.description = "${currentBuild.description}<br>${test_href}"
+  }
+  // Copy test results from agent to controller to 'test-results' directory
+  copyArtifacts(
+      projectName: "ghaf-parallel-hw-test",
+      selector: specific("${job.number}"),
+      target: "ghaf-parallel-hw-test/${flakeref_trimmed}/test-results",
+  )
+  // Archive the test results
+  archive_artifacts("ghaf-parallel-hw-test", flakeref_trimmed)
 }
 
 return this
