@@ -187,7 +187,7 @@ def sign_file(String path, String sigfile, String cert="INT-Ghaf-Devenv-Common")
 }
 
 def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_') {
-  testagent_nodes = nodesByLabel(label: 'testagent', offline: false)
+  testagent_nodes = nodesByLabel(label: "$device_config", offline: false)
   if (!testagent_nodes) {
     println "Warning: Skipping HW test '$flakeref', no test agents online"
     unstable("No test agents online")
@@ -217,7 +217,7 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
     job: "ghaf-hw-test",
     propagate: false,
     parameters: [
-      string(name: "LABEL", value: "testagent"),
+      string(name: "LABEL", value: "$device_config"),
       string(name: "DEVICE_CONFIG_NAME", value: "$device_config"),
       string(name: "IMG_URL", value: "$img_url"),
       string(name: "DESC", value: "$description"),
@@ -247,7 +247,7 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
 }
 
 def ghaf_parallel_hw_test(String flakeref, String device_config, String testset='_boot_') {
-  testagent_nodes = nodesByLabel(label: "testagent_$device_config", offline: false)
+  testagent_nodes = nodesByLabel(label: "$device_config", offline: false)
   if (!testagent_nodes) {
     println "Warning: Skipping HW test '$flakeref', no test agents online"
     unstable("No test agents online")
@@ -275,7 +275,7 @@ def ghaf_parallel_hw_test(String flakeref, String device_config, String testset=
     job: "ghaf-parallel-hw-test",
     propagate: false,
     parameters: [
-      string(name: "LABEL", value: "testagent_$device_config"),
+      string(name: "LABEL", value: "$device_config"),
       string(name: "DEVICE_CONFIG_NAME", value: "$device_config"),
       string(name: "IMG_URL", value: "$img_url"),
       string(name: "DESC", value: "$description"),
