@@ -15,7 +15,32 @@ properties([
   githubProjectProperty(displayName: '', projectUrlStr: REPO_URL),
 ])
 
-////////////////////////////////////////////////////////////////////////////////
+// Which attribute of the flake to evaluate for building
+def flakeAttr = ".#hydraJobs"
+
+// Target names must be direct children of the above
+def targets = [
+  [ target: "docs.aarch64-linux", 
+    hwtest_device: null ],
+  [ target: "docs.x86_64-linux", 
+    hwtest_device: null ],
+  [ target: "generic-x86_64-debug.x86_64-linux", 
+    hwtest_device: "nuc" ],
+  [ target: "lenovo-x1-carbon-gen11-debug.x86_64-linux", 
+    hwtest_device: "lenovo-x1" ],
+  [ target: "microchip-icicle-kit-debug-from-x86_64.x86_64-linux", 
+    hwtest_device: null ],
+  [ target: "nvidia-jetson-orin-agx-debug.aarch64-linux", 
+    hwtest_device: "orin-agx" ],
+  [ target: "nvidia-jetson-orin-agx-debug-from-x86_64.x86_64-linux", 
+    hwtest_device: "orin-agx" ],
+  [ target: "nvidia-jetson-orin-nx-debug.aarch64-linux", 
+    hwtest_device: "orin-nx" ],
+  [ target: "nvidia-jetson-orin-nx-debug-from-x86_64.x86_64-linux", 
+    hwtest_device: "orin-nx" ],
+]
+
+target_jobs = [:]
 
 pipeline {
   agent { label 'built-in' }
@@ -23,7 +48,6 @@ pipeline {
      pollSCM('* * * * *')
   }
   options {
-    disableConcurrentBuilds()
     timestamps ()
     buildDiscarder(logRotator(numToKeepStr: '100'))
   }
@@ -44,43 +68,68 @@ pipeline {
         }
       }
     }
-    stage('Build x86_64') {
+
+    stage('Evaluate') {
       steps {
         dir(WORKDIR) {
           script {
-            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.generic-x86_64-debug', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.doc')
+            // nix-eval-jobs is used to evaluate the given flake attribute, and output target information into jobs.json
+            sh "nix-eval-jobs --gc-roots-dir gcroots --flake ${flakeAttr} --force-recurse > jobs.json"
+
+            // jobs.json is parsed using jq. target's name and derivation path are appended as space separated row into jobs.txt 
+            sh "jq -r '.attr + \" \" + .drvPath' < jobs.json > jobs.txt"
+
+            targets.each {
+              def target = it['target']
+
+              // row that matches this target is grepped from jobs.txt, extracting the pre-evaluated derivation path
+              def drvPath = sh (script: "cat jobs.txt | grep ${target} | cut -d ' ' -f 2", returnStdout: true).trim()
+
+              target_jobs[target] = {
+                stage("Build ${target}") {
+                  def opts = ""
+                  if (it['hwtest_device'] != null) {
+                    opts = "--out-link archive/${target}"
+                  } else {
+                    opts = "--no-link"
+                  }
+                  try {
+                    if (drvPath) {
+                      sh "nix build -L ${drvPath}\\^* ${opts}"
+                    } else {
+                      error("Target \"${target}\" was not found in ${flakeAttr}")
+                    }
+                  } catch (InterruptedException e) {
+                    throw e
+                  } catch (Exception e) {
+                    unstable("FAILED: ${target}")
+                    currentBuild.result = "FAILURE"
+                    println "Error: ${e.toString()}"
+                  }
+                }
+                
+                if (it['hwtest_device'] != null) {
+                  stage("Archive ${target}") {
+                    script {
+                      utils.archive_artifacts("archive", target)
+                    }
+                  } 
+
+                  stage("Test ${target}") {
+                    utils.ghaf_parallel_hw_test(target, it['hwtest_device'])
+                  }
+                }
+              }
+            }
           }
         }
       }
     }
-    stage('Build aarch64') {
+
+    stage('Build targets') {
       steps {
-        dir(WORKDIR) {
-          script {
-            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'archive')
-            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'archive')
-            utils.nix_build('.#packages.aarch64-linux.doc')
-          }
-        }
-      }
-    }
-    stage('HW test') {
-      steps {
-        dir(WORKDIR) {
-          script {
-            utils.ghaf_hw_test('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'orin-agx')
-            utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'orin-agx')
-            utils.ghaf_hw_test('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'orin-nx')
-            utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'orin-nx')
-            utils.ghaf_hw_test('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'lenovo-x1')
-            utils.ghaf_hw_test('.#packages.x86_64-linux.generic-x86_64-debug', 'nuc')
-            utils.ghaf_hw_test('.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64', 'riscv')
-          }
+        script {
+          parallel target_jobs
         }
       }
     }
