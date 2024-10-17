@@ -49,6 +49,7 @@ pipeline {
     pollSCM '0 23 * * *'
   }
   options {
+    disableConcurrentBuilds()
     timestamps ()
     buildDiscarder(logRotator(numToKeepStr: '100'))
   }
