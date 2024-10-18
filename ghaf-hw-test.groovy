@@ -187,7 +187,7 @@ pipeline {
           } else if(params.DEVICE_CONFIG_NAME == "orin-nx") {
             env.DEVICE_NAME = 'OrinNX1'
           } else if(params.DEVICE_CONFIG_NAME == "lenovo-x1") {
-            env.DEVICE_NAME = 'LenovoX1-2'
+            env.DEVICE_NAME = 'LenovoX1-1'
           } else if(params.DEVICE_CONFIG_NAME == "nuc") {
             env.DEVICE_NAME = 'NUC1'
           } else if(params.DEVICE_CONFIG_NAME == "riscv") {

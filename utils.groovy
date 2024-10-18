@@ -262,16 +262,16 @@ def ghaf_parallel_hw_test(String flakeref, String device_config, String testset=
     return
   }
   // Compose the image URL; testagent will need this URL to download the image
-  imgdir = find_img_relpath(flakeref, 'archive')
-  remote_path = "artifacts/${env.ARTIFACTS_REMOTE_PATH}"
-  img_url = "${env.JENKINS_URL}/${remote_path}/${imgdir}"
-  build_url = "${env.JENKINS_URL}/job/${env.JOB_NAME}/${env.BUILD_ID}"
-  build_href = "<a href=\"${build_url}\">${env.JOB_NAME}#${env.BUILD_ID}</a>"
-  flakeref_trimmed = "${flakeref_trim(flakeref)}"
-  description = "Triggered by ${build_href}<br>(${flakeref_trimmed})"
+  def imgdir = find_img_relpath(flakeref, 'archive')
+  def remote_path = "artifacts/${env.ARTIFACTS_REMOTE_PATH}"
+  def img_url = "${env.JENKINS_URL}/${remote_path}/${imgdir}"
+  def build_url = "${env.JENKINS_URL}/job/${env.JOB_NAME}/${env.BUILD_ID}"
+  def build_href = "<a href=\"${build_url}\">${env.JOB_NAME}#${env.BUILD_ID}</a>"
+  def flakeref_trimmed = "${flakeref_trim(flakeref)}"
+  def description = "Triggered by ${build_href}<br>(${flakeref_trimmed})"
   // Trigger a build in 'ghaf-parallel-hw-test' pipeline.
   // 'build' step is documented in https://plugins.jenkins.io/pipeline-build-step/
-  job = build(
+  def job = build(
     job: "ghaf-parallel-hw-test",
     propagate: false,
     parameters: [
@@ -291,7 +291,7 @@ def ghaf_parallel_hw_test(String flakeref, String device_config, String testset=
     unstable("FAILED: ${device_config} ${testset}")
     currentBuild.result = "FAILURE"
     // Add a link to failed test job(s) on the calling pipeline
-    test_href = "<a href=\"${job.absoluteUrl}\">⛔ ${flakeref_trimmed}</a>"
+    def test_href = "<a href=\"${job.absoluteUrl}\">⛔ ${flakeref_trimmed}</a>"
     currentBuild.description = "${currentBuild.description}<br>${test_href}"
   }
   // Copy test results from agent to controller to 'test-results' directory

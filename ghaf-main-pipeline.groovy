@@ -20,23 +20,23 @@ def flakeAttr = ".#hydraJobs"
 
 // Target names must be direct children of the above
 def targets = [
-  [ target: "docs.aarch64-linux", 
+  [ target: "docs.aarch64-linux",
     hwtest_device: null ],
-  [ target: "docs.x86_64-linux", 
+  [ target: "docs.x86_64-linux",
     hwtest_device: null ],
-  [ target: "generic-x86_64-debug.x86_64-linux", 
+  [ target: "generic-x86_64-debug.x86_64-linux",
     hwtest_device: "nuc" ],
-  [ target: "lenovo-x1-carbon-gen11-debug.x86_64-linux", 
+  [ target: "lenovo-x1-carbon-gen11-debug.x86_64-linux",
     hwtest_device: "lenovo-x1" ],
-  [ target: "microchip-icicle-kit-debug-from-x86_64.x86_64-linux", 
+  [ target: "microchip-icicle-kit-debug-from-x86_64.x86_64-linux",
     hwtest_device: null ],
-  [ target: "nvidia-jetson-orin-agx-debug.aarch64-linux", 
+  [ target: "nvidia-jetson-orin-agx-debug.aarch64-linux",
     hwtest_device: "orin-agx" ],
-  [ target: "nvidia-jetson-orin-agx-debug-from-x86_64.x86_64-linux", 
+  [ target: "nvidia-jetson-orin-agx-debug-from-x86_64.x86_64-linux",
     hwtest_device: "orin-agx" ],
-  [ target: "nvidia-jetson-orin-nx-debug.aarch64-linux", 
+  [ target: "nvidia-jetson-orin-nx-debug.aarch64-linux",
     hwtest_device: "orin-nx" ],
-  [ target: "nvidia-jetson-orin-nx-debug-from-x86_64.x86_64-linux", 
+  [ target: "nvidia-jetson-orin-nx-debug-from-x86_64.x86_64-linux",
     hwtest_device: "orin-nx" ],
 ]
 
@@ -77,7 +77,7 @@ pipeline {
             // nix-eval-jobs is used to evaluate the given flake attribute, and output target information into jobs.json
             sh "nix-eval-jobs --gc-roots-dir gcroots --flake ${flakeAttr} --force-recurse > jobs.json"
 
-            // jobs.json is parsed using jq. target's name and derivation path are appended as space separated row into jobs.txt 
+            // jobs.json is parsed using jq. target's name and derivation path are appended as space separated row into jobs.txt
             sh "jq -r '.attr + \" \" + .drvPath' < jobs.json > jobs.txt"
 
             targets.each {
@@ -108,16 +108,16 @@ pipeline {
                     println "Error: ${e.toString()}"
                   }
                 }
-                
+
                 if (it['hwtest_device'] != null) {
                   stage("Archive ${target}") {
                     script {
                       utils.archive_artifacts("archive", target)
                     }
-                  } 
+                  }
 
                   stage("Test ${target}") {
-                    utils.ghaf_parallel_hw_test(target, it['hwtest_device'])
+                    utils.ghaf_parallel_hw_test(target, it['hwtest_device'], '_boot_bat_')
                   }
                 }
               }

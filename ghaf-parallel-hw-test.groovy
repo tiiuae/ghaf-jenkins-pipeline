@@ -98,7 +98,7 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scmGit(
-          branches: [[name: 'switchbot']],
+          branches: [[name: 'main']],
           extensions: [cleanBeforeCheckout()],
           userRemoteConfigs: [[url: REPO_URL]]
         )
