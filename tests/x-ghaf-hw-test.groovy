@@ -6,7 +6,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 def REPO_URL = 'https://github.com/tiiuae/ci-test-automation/'
-def DEF_LABEL = 'testagent'
+def DEF_LABEL = ''
 def TMP_IMG_DIR = './image'
 def CONF_FILE_PATH = '/etc/jenkins/test_config.json'
 
@@ -15,6 +15,7 @@ def CONF_FILE_PATH = '/etc/jenkins/test_config.json'
 properties([
   parameters([
     string(name: 'IMG_URL', defaultValue: 'https://ghaf-jenkins-controller-dev.northeurope.cloudapp.azure.com/artifacts/ghaf-release-pipeline/build_8-commit_5c270677069b96cc43ae2578a72ece272d7e1a37/packages.aarch64-linux.nvidia-jetson-orin-nx-debug/sd-image/nixos-sd-image-24.11.20240802.c488d21-aarch64-linux.img.zst', description: 'Target image url'),
+    string(name: 'LABEL', defaultValue: '', description: "Target testagent need to match with target image device! 'orin-nx', 'orin-agx', 'nuc', 'riscv' or 'lenovo-x1'"),
     string(name: 'TESTSET', defaultValue: '_boot_', description: 'Target test set (_boot_, _bat_, _perf_, or a combination e.g.: _boot_bat_perf_)'),
     booleanParam(name: 'REFRESH', defaultValue: false, description: 'Read the Jenkins pipeline file and exit, setting the build status to failure.')
   ])
@@ -324,4 +325,3 @@ pipeline {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-

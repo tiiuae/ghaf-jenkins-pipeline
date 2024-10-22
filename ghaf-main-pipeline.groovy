@@ -29,7 +29,7 @@ def targets = [
   [ target: "lenovo-x1-carbon-gen11-debug.x86_64-linux",
     hwtest_device: "lenovo-x1" ],
   [ target: "microchip-icicle-kit-debug-from-x86_64.x86_64-linux",
-    hwtest_device: null ],
+    hwtest_device: "riscv" ],
   [ target: "nvidia-jetson-orin-agx-debug.aarch64-linux",
     hwtest_device: "orin-agx" ],
   [ target: "nvidia-jetson-orin-agx-debug-from-x86_64.x86_64-linux",
