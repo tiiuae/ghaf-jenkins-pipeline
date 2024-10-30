@@ -30,6 +30,10 @@ def run_rclone(String opts) {
 }
 
 def archive_artifacts(String subdir, String target="") {
+  //
+  // Create artifacts to webdev server.(Jenkins normal artifacts bypassed)
+  // Add flash script to every created/existing artifact target directory
+  //
   if (!subdir) {
     println "Warning: skipping archive, subdir not set"
     return
@@ -39,7 +43,32 @@ def archive_artifacts(String subdir, String target="") {
     println "Warning: skipping archive, ARTIFACTS_REMOTE_PATH not set"
     return
   }
-  run_rclone("copy -L ${subdir}/${target} :webdav:/${env.ARTIFACTS_REMOTE_PATH}/${target}")
+  // store flashscript in target directoy
+  def flashScript=find_flash_script()
+  if (target) {
+      run_rclone("copy -L ${subdir}/${target} :webdav:/${env.ARTIFACTS_REMOTE_PATH}/${target}")
+      if (!target.endsWith(".doc") && flashScript !="") {
+        println "Including flash script in artifacts for ${target}"
+        run_rclone("copy -L ${flashScript} :webdav:/${env.ARTIFACTS_REMOTE_PATH}/${target}")
+      }
+      else {
+         println "No flashscript found or target is .doc"
+         }
+  } else {
+    // operate in existing directories of subdir if target is empty
+    def targets = sh(script: "ls -d ${subdir}/*/", returnStdout: true).trim().split('\n')
+    for (dir in targets) {
+      def targetDir = dir.replace("${subdir}/", "")
+      run_rclone("copy -L ${dir} :webdav:/${env.ARTIFACTS_REMOTE_PATH}/${targetDir}")
+      if (!targetDir.endsWith(".doc") && flashScript !="") {
+        println "Including flash script in artifacts for ${targetDir}"
+        run_rclone("copy -L ${flashScript} :webdav:/${env.ARTIFACTS_REMOTE_PATH}/${targetDir}")
+      } else {
+          println "No flashscript found or target is .doc"
+            }
+
+    }
+  }
   // Add a link to Artifacts on the build description if it isn't added yet
   href = "/artifacts/${env.ARTIFACTS_REMOTE_PATH}/"
   artifacts_anchor = "<a href=\"${href}\">📦 Artifacts</a>"
@@ -305,5 +334,19 @@ def ghaf_parallel_hw_test(String flakeref, String device_config, String testset=
 }
 
 return this
+
+
+def find_flash_script() {
+  def flashScript=""
+  // jenkins workspace organization varies between builds
+  if (fileExists("ghaf/packages/flash/flash.sh")) {
+      flashScript = "ghaf/packages/flash/flash.sh"
+  } else if (fileExists("packages/flash/flash.sh")) {
+      flashScript = "packages/flash/flash.sh"
+  } else {
+    error("Error: Flash script not found in either predefined locations")
+  }
+  return flashScript
+}
 
 ////////////////////////////////////////////////////////////////////////////////
