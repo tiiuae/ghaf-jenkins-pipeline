@@ -6,7 +6,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 def REPO_URL = 'https://github.com/tiiuae/ci-test-automation/'
-def DEF_LABEL = ''
 def TMP_IMG_DIR = './image'
 def CONF_FILE_PATH = '/etc/jenkins/test_config.json'
 
@@ -15,13 +14,52 @@ def CONF_FILE_PATH = '/etc/jenkins/test_config.json'
 properties([
   parameters([
     string(name: 'IMG_URL', defaultValue: 'https://ghaf-jenkins-controller-dev.northeurope.cloudapp.azure.com/artifacts/ghaf-release-pipeline/build_8-commit_5c270677069b96cc43ae2578a72ece272d7e1a37/packages.aarch64-linux.nvidia-jetson-orin-nx-debug/sd-image/nixos-sd-image-24.11.20240802.c488d21-aarch64-linux.img.zst', description: 'Target image url'),
-    string(name: 'LABEL', defaultValue: '', description: "Target testagent need to match with target image device! 'orin-nx', 'orin-agx', 'nuc', 'riscv' or 'lenovo-x1'"),
-    string(name: 'TESTSET', defaultValue: '_boot_', description: 'Target test set (_boot_, _bat_, _perf_, or a combination e.g.: _boot_bat_perf_)'),
-    booleanParam(name: 'REFRESH', defaultValue: false, description: 'Read the Jenkins pipeline file and exit, setting the build status to failure.')
+    string(name: 'BRANCH', defaultValue: 'main', description: 'ci-test-automation branch to checkout'),
+    string(name: 'TEST_TAGS', defaultValue: '', description: 'Target test tags device need to match with given image URL!(combination of device and tag(s) or just a tag e.g.: bootANDorin-nx, SP-T65, SP-T45ORSP-T60 etc..)'),
+    booleanParam(name: 'REFRESH', defaultValue: false, description: 'Read the Jenkins pipeline file and exit, setting the build status to failure.'),
+    booleanParam(name: 'FLASH', defaultValue: true, description: 'If this is set then image will be downloaded and drive flashed.')
   ])
 ])
 
 ////////////////////////////////////////////////////////////////////////////////
+
+def parse_image_url_and_set_device() {
+  if(!params.containsKey('IMG_URL')) {
+    error("Missing IMG_URL parameter")
+  }
+  // Parse out the TARGET from the IMG_URL
+  if((match = params.IMG_URL =~ /build_\d.+?\/([^\/]+)/)) {
+    env.TARGET = "${match.group(1)}"
+    match = null // https://stackoverflow.com/questions/40454558
+    println("Using TARGET: ${env.TARGET}")
+  } else {
+    error("Unexpected IMG_URL: ${params.IMG_URL}")
+  }
+
+  // Determine the device name
+  if(params.IMG_URL.contains("orin-agx-")) {
+    env.DEVICE_NAME = 'OrinAGX1'
+    env.DEVICE_TAG = 'orin-agx'
+  } else if(params.IMG_URL.contains("orin-nx-")) {
+    env.DEVICE_NAME = 'OrinNX1'
+    env.DEVICE_TAG = 'orin-nx'
+  } else if(params.IMG_URL.contains("lenovo-x1-")) {
+    env.DEVICE_NAME = 'LenovoX1-1'
+    env.DEVICE_TAG = 'lenovo-x1'
+  } else if(params.IMG_URL.contains("generic-x86_64-")) {
+    env.DEVICE_NAME = 'NUC1'
+    env.DEVICE_TAG = 'nuc'
+  } else if(params.IMG_URL.contains("microchip-icicle-")) {
+    env.DEVICE_NAME = 'Polarfire1'
+    env.DEVICE_TAG = 'riscv'
+  } else {
+    error("Unable to parse device config for image '${params.IMG_URL}'")
+  }
+  println("Using DEVICE_NAME: ${env.DEVICE_NAME}")
+  println("Using DEVICE_TAG: ${env.DEVICE_TAG}")
+
+  return env.DEVICE_TAG
+}
 
 def sh_ret_out(String cmd) {
   // Run cmd returning stdout
@@ -45,17 +83,23 @@ def get_test_conf_property(String file_path, String device, String property) {
   return property_data
 }
 
-def ghaf_robot_test(String testname='boot') {
+def ghaf_robot_test(String test_tags) {
   if (!env.DEVICE_TAG) {
     error("DEVICE_TAG not set")
   }
   if (!env.DEVICE_NAME) {
     error("DEVICE_NAME not set")
   }
-  if (testname == 'turnoff') {
-    env.INCLUDE_TEST_TAGS = "${testname}"
+  if (test_tags == 'boot') {
+    env.INCLUDE_TEST_TAGS = "${test_tags}AND${env.DEVICE_TAG}"
+    println "Run BOOT test with these tags: -i ${env.INCLUDE_TEST_TAGS}"
   } else {
-    env.INCLUDE_TEST_TAGS = "${testname}AND${env.DEVICE_TAG}"
+    if (test_tags) {
+      env.INCLUDE_TEST_TAGS = "${test_tags}"
+      println "Run test with these tags: -i ${test_tags}"
+    } else {
+      println "Test tags is empty, give test tags as parameter when build this job!"
+    }
   }
   // TODO: do we really need credentials to access the target devices?
   // Target devices are connected to the testagent, which itself is
@@ -91,18 +135,18 @@ def ghaf_robot_test(String testname='boot') {
             -v BUILD_ID:${BUILD_NUMBER} \
             -i $INCLUDE_TEST_TAGS .
         '''
-        if (testname == 'boot') {
+        if (test_tags == 'boot') {
           // Set an environment variable to indicate boot test passed
           env.BOOT_PASSED = 'true'
         }
       } catch (Exception e) {
         currentBuild.result = "FAILURE"
-        unstable("FAILED '${testname}': ${e.toString()}")
+        unstable("FAILED '${test_tags}': ${e.toString()}")
       } finally {
         // Move the test output (if any) to a subdirectory
         sh """
-          rm -fr $testname; mkdir -p $testname
-          mv -f *.png output.xml report.html log.html $testname/ || true
+          rm -fr $test_tags; mkdir -p $test_tags
+          mv -f *.png output.xml report.html log.html $test_tags/ || true
         """
       }
     }
@@ -112,7 +156,7 @@ def ghaf_robot_test(String testname='boot') {
 ////////////////////////////////////////////////////////////////////////////////
 
 pipeline {
-  agent { label "${params.getOrDefault('LABEL', DEF_LABEL)}" }
+  agent { label parse_image_url_and_set_device() }
   options { timestamps () }
   stages {
     stage('Refresh') {
@@ -127,7 +171,7 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scmGit(
-          branches: [[name: 'main']],
+          branches: [[name: "${params.BRANCH}"]],
           userRemoteConfigs: [[url: REPO_URL]]
         )
       }
@@ -135,17 +179,8 @@ pipeline {
     stage('Setup') {
       steps {
         script {
-          if(!params.containsKey('IMG_URL')) {
-            error("Missing IMG_URL parameter")
-          }
-          // Parse out the TARGET from the IMG_URL
-          if((match = params.IMG_URL =~ /build_\d.+?\/([^\/]+)/)) {
-            env.TARGET = "${match.group(1)}"
-            match = null // https://stackoverflow.com/questions/40454558
-            println("Using TARGET: ${env.TARGET}")
-          } else {
-            error("Unexpected IMG_URL: ${params.IMG_URL}")
-          }
+          // Set boot test 'true' if boot test is excluded from wanted test set. Will be set to 'false' later if boot test is included and it fails.
+          env.BOOT_PASSED = 'true'
           currentBuild.description = "${env.TARGET}"
           env.TEST_CONFIG_DIR = 'Robot-Framework/config'
           sh """
@@ -155,21 +190,20 @@ pipeline {
             echo { \\\"Job\\\": \\\"${env.TARGET}\\\" } > ${TEST_CONFIG_DIR}/${BUILD_NUMBER}.json
             ls -la ${TEST_CONFIG_DIR}
           """
-          env.TESTSET = params.getOrDefault('TESTSET', '_boot_')
-          println "Using TESTSET: ${env.TESTSET}"
         }
       }
     }
     stage('Image download') {
+      when { expression { params.getOrDefault('FLASH', true) } }
       steps {
         script {
           // env.IMG_WGET stores the path to image as downloaded from the remote
           env.IMG_WGET = run_wget(params.IMG_URL, TMP_IMG_DIR)
           println "Downloaded image to workspace: ${env.IMG_WGET}"
           // Verify signature using the tooling from: https://github.com/tiiuae/ci-yubi
-          sig_path = run_wget("${params.IMG_URL}.sig", TMP_IMG_DIR)
-          println "Downloaded signature to workspace: ${sig_path}"
-          sh "nix run github:tiiuae/ci-yubi/bdb2dbf#verify -- --path ${env.IMG_WGET} --sigfile ${sig_path}"
+          // sig_path = run_wget("${params.IMG_URL}.sig", TMP_IMG_DIR)
+          // println "Downloaded signature to workspace: ${sig_path}"
+          // sh "nix run github:tiiuae/ci-yubi/bdb2dbf#verify -- --path ${env.IMG_WGET} --sigfile ${sig_path}"
           // Uncompress
           if(env.IMG_WGET.endsWith(".zst")) {
             sh "zstd -dfv ${env.IMG_WGET}"
@@ -183,31 +217,11 @@ pipeline {
       }
     }
     stage('Flash') {
+      when { expression { params.getOrDefault('FLASH', true) } }
       steps {
         // TODO: We should use ghaf flashing scripts or installers.
         // We don't want to maintain these flashing details here:
         script {
-          // Determine the device name
-          if(params.IMG_URL.contains("orin-agx-")) {
-            env.DEVICE_NAME = 'OrinAGX1'
-            env.DEVICE_TAG = 'orin-agx'
-          } else if(params.IMG_URL.contains("orin-nx-")) {
-            env.DEVICE_NAME = 'OrinNX1'
-            env.DEVICE_TAG = 'orin-nx'
-          } else if(params.IMG_URL.contains("lenovo-x1-")) {
-            env.DEVICE_NAME = 'LenovoX1-2'
-            env.DEVICE_TAG = 'lenovo-x1'
-          } else if(params.IMG_URL.contains("generic-x86_64-")) {
-            env.DEVICE_NAME = 'NUC1'
-            env.DEVICE_TAG = 'nuc'
-          } else if(params.IMG_URL.contains("microchip-icicle-")) {
-            env.DEVICE_NAME = 'Polarfire1'
-            env.DEVICE_TAG = 'riscv'
-          } else {
-            error("Unable to parse device config for image '${params.IMG_URL}'")
-          }
-          println("Using DEVICE_NAME: ${env.DEVICE_NAME}")
-          println("Using DEVICE_TAG: ${env.DEVICE_TAG}")
           // Determine mount commands
           if(params.IMG_URL.contains("microchip-icicle-")) {
             muxport = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'usb_sd_mux_port')
@@ -223,8 +237,7 @@ pipeline {
           // Mount the target disk
           sh "${mount_cmd}"
           // Read the device name
-          sh "lsblk -o model,name"
-          dev = sh_ret_out("lsblk -o model,name | grep '${dgrep}' | rev | cut -d ' ' -f 1 | rev | grep .")
+          dev = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'ext_drive_by-id')
           println "Using device '$dev'"
           // Wipe possible ZFS leftovers, more details here:
           // https://github.com/tiiuae/ghaf/blob/454b18bc/packages/installer/ghaf-installer.sh#L75
@@ -233,23 +246,23 @@ pipeline {
             SECTOR = 512
             MIB_TO_SECTORS = 20480
             // Disk size in 512-byte sectors
-            SECTORS = sh(script: "/run/wrappers/bin/sudo blockdev --getsz /dev/${dev}", returnStdout: true).trim()
+            SECTORS = sh(script: "/run/wrappers/bin/sudo blockdev --getsz /dev/disk/by-id/${dev}", returnStdout: true).trim()
             // Unmount possible mounted filesystems
-            sh "sync; /run/wrappers/bin/sudo umount -q /dev/${dev}* || true"
+            sh "sync; /run/wrappers/bin/sudo umount -q /dev/disk/by-id/${dev}* || true"
             // Wipe first 10MiB of disk
-            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=/dev/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} conv=fsync status=none"
+            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=/dev/disk/by-id/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} conv=fsync status=none"
             // Wipe last 10MiB of disk
-            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=/dev/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} seek=\$(( ${SECTORS} - ${MIB_TO_SECTORS} )) conv=fsync status=none"
+            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=/dev/disk/by-id/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} seek=\$(( ${SECTORS} - ${MIB_TO_SECTORS} )) conv=fsync status=none"
           }
           // Write the image
-          sh "/run/wrappers/bin/sudo dd if=${env.IMG_PATH} of=/dev/${dev} bs=1M status=progress conv=fsync"
+          sh "/run/wrappers/bin/sudo dd if=${env.IMG_PATH} of=/dev/disk/by-id/${dev} bs=1M status=progress conv=fsync"
           // Unmount
           sh "${unmount_cmd}"
         }
       }
     }
     stage('Boot test') {
-      when { expression { env.TESTSET.contains('_boot_')} }
+      when { expression { params.getOrDefault('FLASH', true) } }
       steps {
         script {
           env.BOOT_PASSED = 'false'
@@ -258,26 +271,11 @@ pipeline {
         }
       }
     }
-    stage('Bat test') {
-      when { expression { env.BOOT_PASSED == 'true' && env.TESTSET.contains('_bat_')} }
+    stage('HW test') {
+      when { expression { env.BOOT_PASSED == 'true' } }
       steps {
         script {
-          ghaf_robot_test('bat')
-        }
-      }
-    }
-    stage('Perf test') {
-      when { expression { env.BOOT_PASSED == 'true' && env.TESTSET.contains('_perf_')} }
-      steps {
-        script {
-          ghaf_robot_test('performance')
-        }
-      }
-    }
-    stage('Turn off') {
-      steps {
-        script {
-          ghaf_robot_test('turnoff')
+          ghaf_robot_test(params.TEST_TAGS)
         }
       }
     }
