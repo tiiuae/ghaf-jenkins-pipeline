@@ -207,7 +207,6 @@ pipeline {
           sh "${mount_cmd}"
           // Read the device name
           dev = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'ext_drive_by-id')
-          //dev = run_cmd("lsblk -o model,name | grep '${dgrep}' | rev | cut -d ' ' -f 1 | rev | grep .")
           println "Using device '$dev'"
           // Wipe possible ZFS leftovers, more details here:
           // https://github.com/tiiuae/ghaf/blob/454b18bc/packages/installer/ghaf-installer.sh#L75
