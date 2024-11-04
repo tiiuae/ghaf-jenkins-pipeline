@@ -8,20 +8,16 @@
 def REPO_URL = 'https://github.com/tiiuae/ghaf/'
 def WORKDIR  = 'ghaf'
 
-// Which attribute of the flake to evaluate for building
-def flakeAttr = ".#hydraJobs"
-
-// Target names must be direct children of the above
 def targets = [
-  [ target: "docs.aarch64-linux" ],
-  [ target: "docs.x86_64-linux" ],
-  [ target: "generic-x86_64-debug.x86_64-linux" ],
-  [ target: "lenovo-x1-carbon-gen11-debug.x86_64-linux" ],
-  [ target: "microchip-icicle-kit-debug-from-x86_64.x86_64-linux" ],
-  [ target: "nvidia-jetson-orin-agx-debug.aarch64-linux" ],
-  [ target: "nvidia-jetson-orin-agx-debug-from-x86_64.x86_64-linux" ],
-  [ target: "nvidia-jetson-orin-nx-debug.aarch64-linux" ],
-  [ target: "nvidia-jetson-orin-nx-debug-from-x86_64.x86_64-linux" ],
+  [ system: "aarch64-linux", target: "doc", ],
+  [ system: "x86_64-linux", target: "doc", ],
+  [ system: "x86_64-linux", target: "generic-x86_64-debug", ],
+  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug", ],
+  [ system: "x86_64-linux", target: "microchip-icicle-kit-debug-from-x86_64", ],
+  [ system: "aarch64-linux", target: "nvidia-jetson-orin-agx-debug", ],
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-from-x86_64", ],
+  [ system: "aarch64-linux", target: "nvidia-jetson-orin-nx-debug", ],
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-from-x86_64", ],
 ]
 
 target_jobs = [:]
@@ -140,25 +136,22 @@ pipeline {
       steps {
         dir(WORKDIR) {
           script {
-            // nix-eval-jobs is used to evaluate the given flake attribute, and output target information into jobs.json
-            sh "nix-eval-jobs --gc-roots-dir gcroots --flake ${flakeAttr} --force-recurse > jobs.json"
-
-            // jobs.json is parsed using jq. target's name and derivation path are appended as space separated row into jobs.txt 
-            sh "jq -r '.attr + \" \" + .drvPath' < jobs.json > jobs.txt"
+            // Creates jobs.txt in working directory to use later
+            utils.nix_eval_jobs(targets)
 
             targets.each {
-              def target = it['target']
+              def target = it.system + "." + it.target
 
               // row that matches this target is grepped from jobs.txt, extracting the pre-evaluated derivation path
               def drvPath = sh (script: "cat jobs.txt | grep ${target} | cut -d ' ' -f 2", returnStdout: true).trim()
 
-              target_jobs[target] = {
-                stage("${target}") {
+              target_jobs["${it.target} (${it.system})"] = {
+                stage("Build ${target}") {
                   try {
                     if (drvPath) {
                       sh "nix build --no-link -L ${drvPath}\\^*"
                     } else {
-                      error("Target \"${target}\" was not found in ${flakeAttr}")
+                      error("Target \"${target}\" was not found in packages")
                     }
                   } catch (InterruptedException e) {
                     throw e
