@@ -15,36 +15,32 @@ properties([
   githubProjectProperty(displayName: '', projectUrlStr: REPO_URL),
 ])
 
-// Which attribute of the flake to evaluate for building
-def flakeAttr = ".#hydraJobs"
-
-// Target names must be direct children of the above
 def targets = [
-  [ target: "docs.aarch64-linux",
+  [ system: "aarch64-linux", target: "doc",
     archive: false, hwtest_device: null
   ],
-  [ target: "docs.x86_64-linux",
+  [ system: "x86_64-linux", target: "doc",
     archive: false, hwtest_device: null
   ],
-  [ target: "generic-x86_64-debug.x86_64-linux",
+  [ system: "x86_64-linux", target: "generic-x86_64-debug",
     archive: true, hwtest_device: "nuc"
   ],
-  [ target: "lenovo-x1-carbon-gen11-debug.x86_64-linux",
+  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug",
     archive: true, hwtest_device: "lenovo-x1"
   ],
-  [ target: "microchip-icicle-kit-debug-from-x86_64.x86_64-linux",
+  [ system: "x86_64-linux", target: "microchip-icicle-kit-debug-from-x86_64",
     archive: true, hwtest_device: "riscv"
   ],
-  [ target: "nvidia-jetson-orin-agx-debug.aarch64-linux",
+  [ system: "aarch64-linux", target: "nvidia-jetson-orin-agx-debug",
     archive: true, hwtest_device: "orin-agx"
   ],
-  [ target: "nvidia-jetson-orin-agx-debug-from-x86_64.x86_64-linux",
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-from-x86_64",
     archive: true, hwtest_device: "orin-agx"
   ],
-  [ target: "nvidia-jetson-orin-nx-debug.aarch64-linux",
+  [ system: "aarch64-linux", target: "nvidia-jetson-orin-nx-debug",
     archive: true, hwtest_device: "orin-nx"
   ],
-  [ target: "nvidia-jetson-orin-nx-debug-from-x86_64.x86_64-linux",
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-from-x86_64",
     archive: true, hwtest_device: "orin-nx"
   ],
 ]
@@ -83,22 +79,19 @@ pipeline {
       steps {
         dir(WORKDIR) {
           script {
-            // nix-eval-jobs is used to evaluate the given flake attribute, and output target information into jobs.json
-            sh "nix-eval-jobs --gc-roots-dir gcroots --flake ${flakeAttr} --force-recurse > jobs.json"
-
-            // jobs.json is parsed using jq. target's name and derivation path are appended as space separated row into jobs.txt
-            sh "jq -r '.attr + \" \" + .drvPath' < jobs.json > jobs.txt"
+            // Creates jobs.txt in working directory to use later
+            utils.nix_eval_jobs(targets)
 
             targets.each {
-              def target = it['target']
+              def target = it.system + "." + it.target
 
               // row that matches this target is grepped from jobs.txt, extracting the pre-evaluated derivation path
               def drvPath = sh (script: "cat jobs.txt | grep ${target} | cut -d ' ' -f 2", returnStdout: true).trim()
 
-              target_jobs[target] = {
+              target_jobs["${it.target} (${it.system})"] = {
                 stage("Build ${target}") {
                   def opts = ""
-                  if (it['archive']) {
+                  if (it.archive) {
                     opts = "--out-link archive/${target}"
                   } else {
                     opts = "--no-link"
@@ -108,12 +101,12 @@ pipeline {
                       sh "nix build -L ${drvPath}\\^* ${opts}"
 
                       // only attempt signing if there is something to sign
-                      if (it['archive']) {
+                      if (it.archive) {
                         def img_relpath = utils.find_img_relpath(target, "archive")
                         utils.sign_file("archive/${img_relpath}", "sig/${img_relpath}.sig")
                       }
                     } else {
-                      error("Target \"${target}\" was not found in ${flakeAttr}")
+                      error("Target \"${target}\" was not found in packages")
                     }
                   } catch (InterruptedException e) {
                     throw e
@@ -124,7 +117,7 @@ pipeline {
                   }
                 }
 
-                if (it['archive']) {
+                if (it.archive) {
                   stage("Archive ${target}") {
                     script {
                       utils.archive_artifacts("archive", target)
@@ -133,9 +126,9 @@ pipeline {
                   }
                 }
 
-                if (it['hwtest_device'] != null) {
+                if (it.hwtest_device != null) {
                   stage("Test ${target}") {
-                    utils.ghaf_parallel_hw_test(target, it['hwtest_device'], '_boot_bat_')
+                    utils.ghaf_parallel_hw_test(target, it.hwtest_device, '_boot_bat_')
                   }
                 }
               }

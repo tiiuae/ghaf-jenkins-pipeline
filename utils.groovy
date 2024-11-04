@@ -304,6 +304,29 @@ def ghaf_parallel_hw_test(String flakeref, String device_config, String testset=
   archive_artifacts("ghaf-parallel-hw-test", flakeref_trimmed)
 }
 
+def nix_eval_jobs(List<Map> targets) {
+  // transform target names into valid nix arrays to be plugged into the expression below
+  def x86_targets = "\"${targets.findAll { it.system == "x86_64-linux" }.target.join('" "')}\""
+  def aarch64_targets = "\"${targets.findAll { it.system == "aarch64-linux" }.target.join('" "')}\""
+
+  // nix-eval-jobs is used to evaluate the targets in parallel and compute derivation paths.
+  // nix expression is used to create an attset on the fly which is a subset of #packages, 
+  // but only includes the targets we want to build, to save time
+  sh """
+    nix-eval-jobs --gc-roots-dir gcroots --force-recurse --expr ' \
+      let \
+        flake = builtins.getFlake ("git+file://" + toString ./.); \
+        lib = (import flake.inputs.nixpkgs { }).lib; \
+      in { \
+        x86_64-linux = lib.getAttrs [ ${x86_targets} ] flake.packages.x86_64-linux; \
+        aarch64-linux = lib.getAttrs [ ${aarch64_targets} ] flake.packages.aarch64-linux; \
+      }' > jobs.json
+  """
+
+  // target's name and derivation path are read from jobs.json and written into into jobs.txt
+  sh "jq -r '.attr + \" \" + .drvPath' < jobs.json > jobs.txt"
+}
+
 return this
 
 ////////////////////////////////////////////////////////////////////////////////
