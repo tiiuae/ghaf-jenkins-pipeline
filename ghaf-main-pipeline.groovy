@@ -21,23 +21,32 @@ def flakeAttr = ".#hydraJobs"
 // Target names must be direct children of the above
 def targets = [
   [ target: "docs.aarch64-linux",
-    hwtest_device: null ],
+    archive: false, hwtest_device: null
+  ],
   [ target: "docs.x86_64-linux",
-    hwtest_device: null ],
+    archive: false, hwtest_device: null
+  ],
   [ target: "generic-x86_64-debug.x86_64-linux",
-    hwtest_device: "nuc" ],
+    archive: true, hwtest_device: "nuc"
+  ],
   [ target: "lenovo-x1-carbon-gen11-debug.x86_64-linux",
-    hwtest_device: "lenovo-x1" ],
+    archive: true, hwtest_device: "lenovo-x1"
+  ],
   [ target: "microchip-icicle-kit-debug-from-x86_64.x86_64-linux",
-    hwtest_device: "riscv" ],
+    archive: true, hwtest_device: "riscv"
+  ],
   [ target: "nvidia-jetson-orin-agx-debug.aarch64-linux",
-    hwtest_device: "orin-agx" ],
+    archive: true, hwtest_device: "orin-agx"
+  ],
   [ target: "nvidia-jetson-orin-agx-debug-from-x86_64.x86_64-linux",
-    hwtest_device: "orin-agx" ],
+    archive: true, hwtest_device: "orin-agx"
+  ],
   [ target: "nvidia-jetson-orin-nx-debug.aarch64-linux",
-    hwtest_device: "orin-nx" ],
+    archive: true, hwtest_device: "orin-nx"
+  ],
   [ target: "nvidia-jetson-orin-nx-debug-from-x86_64.x86_64-linux",
-    hwtest_device: "orin-nx" ],
+    archive: true, hwtest_device: "orin-nx"
+  ],
 ]
 
 target_jobs = [:]
@@ -89,7 +98,7 @@ pipeline {
               target_jobs[target] = {
                 stage("Build ${target}") {
                   def opts = ""
-                  if (it['hwtest_device'] != null) {
+                  if (it['archive']) {
                     opts = "--out-link archive/${target}"
                   } else {
                     opts = "--no-link"
@@ -97,6 +106,12 @@ pipeline {
                   try {
                     if (drvPath) {
                       sh "nix build -L ${drvPath}\\^* ${opts}"
+
+                      // only attempt signing if there is something to sign
+                      if (it['archive']) {
+                        def img_relpath = utils.find_img_relpath(target, "archive")
+                        utils.sign_file("archive/${img_relpath}", "sig/${img_relpath}.sig")
+                      }
                     } else {
                       error("Target \"${target}\" was not found in ${flakeAttr}")
                     }
@@ -109,13 +124,16 @@ pipeline {
                   }
                 }
 
-                if (it['hwtest_device'] != null) {
+                if (it['archive']) {
                   stage("Archive ${target}") {
                     script {
                       utils.archive_artifacts("archive", target)
+                      utils.archive_artifacts("sig", target)
                     }
                   }
+                }
 
+                if (it['hwtest_device'] != null) {
                   stage("Test ${target}") {
                     utils.ghaf_parallel_hw_test(target, it['hwtest_device'], '_boot_bat_')
                   }

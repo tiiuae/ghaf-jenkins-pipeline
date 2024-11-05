@@ -79,7 +79,7 @@ def nix_build(String flakeref, String subdir=null) {
     if (img_relpath) {
       target_path = "${subdir}/${img_relpath}"
       sig_path = "sig/${img_relpath}.sig"
-      sign_file(target_path, sig_path)
+      sign_file(target_path, sig_path, "INT-Ghaf-Devenv-Image")
       // Archive signature file alongside the target image
       archive_artifacts("sig")
     } else {
@@ -131,7 +131,7 @@ def provenance(String flakeref, String outdir, String flakeref_trimmed) {
     sh "provenance ${flakeref} ${opts}"
     // Sign the provenance
     target_path = "${outdir}/provenance.json"
-    sign_file(target_path, "${target_path}.sig")
+    sign_file(target_path, "${target_path}.sig", "INT-Ghaf-Devenv-Provenance")
 }
 
 def sbomnix(String tool, String flakeref) {

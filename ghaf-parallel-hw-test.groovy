@@ -49,6 +49,8 @@ def ghaf_robot_test(String testname='boot') {
     string(credentialsId: 'testagent-plug-pass', variable: 'PLUG_PASS'),
     string(credentialsId: 'testagent-switch-token', variable: 'SW_TOKEN'),
     string(credentialsId: 'testagent-switch-secret', variable: 'SW_SECRET'),
+    string(credentialsId: 'testagent-wifi-ssid', variable: 'WIFI_SSID'),
+    string(credentialsId: 'testagent-wifi-password', variable: 'WIFI_PSWD'),
     ]) {
     dir("Robot-Framework/test-suites") {
       sh 'rm -f *.png output.xml report.html log.html'
@@ -69,6 +71,8 @@ def ghaf_robot_test(String testname='boot') {
             -v SWITCH_TOKEN:$SW_TOKEN \
             -v SWITCH_SECRET:$SW_SECRET \
             -v BUILD_ID:${BUILD_NUMBER} \
+            -v TEST_WIFI_SSID:${WIFI_SSID} \
+            -v TEST_WIFI_PSWD:${WIFI_PSWD} \
             -i $INCLUDE_TEST_TAGS .
         '''
         if (testname == 'boot') {
@@ -207,7 +211,6 @@ pipeline {
           sh "${mount_cmd}"
           // Read the device name
           dev = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'ext_drive_by-id')
-          //dev = run_cmd("lsblk -o model,name | grep '${dgrep}' | rev | cut -d ' ' -f 1 | rev | grep .")
           println "Using device '$dev'"
           // Wipe possible ZFS leftovers, more details here:
           // https://github.com/tiiuae/ghaf/blob/454b18bc/packages/installer/ghaf-installer.sh#L75
