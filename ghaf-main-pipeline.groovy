@@ -103,7 +103,7 @@ pipeline {
                       // only attempt signing if there is something to sign
                       if (it.archive) {
                         def img_relpath = utils.find_img_relpath(target, "archive")
-                        utils.sign_file("archive/${img_relpath}", "sig/${img_relpath}.sig")
+                        utils.sign_file("archive/${img_relpath}", "sig/${img_relpath}.sig", "INT-Ghaf-Devenv-Image")
                       }
                     } else {
                       error("Target \"${target}\" was not found in packages")

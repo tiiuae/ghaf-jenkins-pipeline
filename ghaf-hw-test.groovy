@@ -169,7 +169,7 @@ pipeline {
           sh "wget -nv -P ${TMP_SIG_DIR} ${params.IMG_URL}.sig"
           sig_relpath = run_cmd("find ${TMP_SIG_DIR} -type f -print -quit | grep .")
           println "Downloaded signature to workspace: ${sig_relpath}"
-          sh "nix run github:tiiuae/ci-yubi/bdb2dbf#verify -- --path ${img_relpath} --sigfile ${sig_relpath}"
+          sh "nix run github:tiiuae/ci-yubi/bdb2dbf#verify -- --path ${img_relpath} --sigfile ${sig_relpath} --cert INT-Ghaf-Devenv-Image"
           // Uncompress, keeping only the decompressed image file
           if(img_relpath.endsWith("zst")) {
             sh "zstd -dfv ${img_relpath} && rm ${img_relpath}"
