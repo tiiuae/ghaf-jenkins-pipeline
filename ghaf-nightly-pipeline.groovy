@@ -3,6 +3,8 @@
 // SPDX-FileCopyrightText: 2022-2024 TII (SSRC) and the Ghaf contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import groovy.json.JsonOutput
+
 ////////////////////////////////////////////////////////////////////////////////
 
 def REPO_URL = 'https://github.com/tiiuae/ghaf/'
@@ -15,10 +17,78 @@ properties([
   githubProjectProperty(displayName: '', projectUrlStr: REPO_URL),
 ])
 
+def targets = [
+  // docs
+  [ system: "x86_64-linux", target: "doc",
+    archive: false
+  ],
+  [ system: "aarch64-linux", target: "doc",
+    archive: false
+  ],
+
+  // lenovo x1
+  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug",
+    archive: true, scs: true, hwtest_device: "lenovo-x1"
+  ],
+  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug-installer",
+    archive: true, scs: true
+  ],
+  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-release",
+    archive: true, scs: true
+  ],
+  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-release-installer",
+    archive: true, scs: true
+  ],
+
+  // nvidia orin
+  [ system: "aarch64-linux", target: "nvidia-jetson-orin-agx-debug",
+    archive: true, scs: true, hwtest_device: "orin-agx"
+  ],
+  [ system: "aarch64-linux", target: "nvidia-jetson-orin-nx-debug",
+    archive: true, scs: true, hwtest_device: "orin-nx"
+  ],
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-from-x86_64",
+    archive: true, scs: true, hwtest_device: "orin-agx"
+  ],
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-from-x86_64",
+    archive: true, scs: true, hwtest_device: "orin-nx"
+  ],
+
+  // others
+  [ system: "x86_64-linux", target: "generic-x86_64-debug",
+    archive: true, hwtest_device: "nuc"
+  ],
+  [ system: "x86_64-linux", target: "microchip-icicle-kit-debug-from-x86_64",
+    archive: true, scs: true, hwtest_device: "riscv"
+  ],
+  [ system: "aarch64-linux", target: "nxp-imx8mp-evk-debug",
+    archive: true, scs: true
+  ], 
+]
+
+hydrajobs_targets = [
+  // nvidia orin with bpmp enabled
+  [ system: "aarch64-linux",target: "nvidia-jetson-orin-agx-debug-bpmp", 
+    archive: true
+  ], 
+  [ system: "aarch64-linux",target: "nvidia-jetson-orin-nx-debug-bpmp", 
+    archive: true
+  ], 
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-bpmp-from-x86_64", 
+    archive: true
+  ], 
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-bpmp-from-x86_64", 
+    archive: true
+  ], 
+]
+
+target_jobs = [:]
+
 ////////////////////////////////////////////////////////////////////////////////
 
 pipeline {
   agent { label 'built-in' }
+
   triggers {
      // We could use something like cron('@midnight') here, but since we
      // archive the images, this pipeline would then generate many
@@ -27,12 +97,15 @@ pipeline {
      // we trigger based one-time daily poll at 23:00 instead:
      pollSCM('0 23 * * *')
   }
+
   options {
     disableConcurrentBuilds()
     timestamps ()
     buildDiscarder(logRotator(numToKeepStr: '100'))
   }
+
   stages {
+
     stage('Checkout') {
       steps {
         script { utils = load "utils.groovy" }
@@ -50,106 +123,146 @@ pipeline {
         }
       }
     }
-    stage('Build x86_64') {
+
+    stage('Evaluate') {
       steps {
         dir(WORKDIR) {
           script {
-            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug-installer', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-release', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-release-installer', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.generic-x86_64-debug', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64', 'archive')
-            utils.nix_build('.#hydraJobs.nvidia-jetson-orin-agx-debug-bpmp-from-x86_64.x86_64-linux', 'archive')
-            utils.nix_build('.#hydraJobs.nvidia-jetson-orin-nx-debug-bpmp-from-x86_64.x86_64-linux', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.doc')
+            // evaluation adds the .drvPath attribute to our map
+            utils.nix_eval_jobs(targets)
+            // remove when hydrajobs is retired from ghaf
+            utils.nix_eval_hydrajobs(hydrajobs_targets)
+            targets = targets + hydrajobs_targets
+
+            targets.each {
+              def timestampBegin = ""
+              def timestampEnd = ""
+              def displayName = "${it.target} (${it.system})"
+              def targetAttr = "${it.system}.${it.target}"
+              def scsdir = "scs/${targetAttr}/scs"
+
+              target_jobs[displayName] = {
+                stage("Build ${displayName}") {
+                  def opts = ""
+                  if (it.archive) { 
+                    opts = "--out-link archive/${targetAttr}"
+                  } else {
+                    opts = "--no-link"
+                  }
+                  try {
+                    if (it.drvPath) {
+                      timestampBegin = sh(script: "date +%s", returnStdout: true).trim()
+                      sh "nix build -L ${it.drvPath}\\^* ${opts}"
+                      timestampEnd = sh(script: "date +%s", returnStdout: true).trim()
+
+                      // only attempt signing if there is something to sign
+                      if (it.archive) {
+                        def img_relpath = utils.find_img_relpath(targetAttr, "archive")
+                        utils.sign_file("archive/${img_relpath}", "sig/${img_relpath}.sig", "INT-Ghaf-Devenv-Image")
+                      };
+                    } else {
+                      error("Derivation was not found for \"${targetAttr}\"")
+                    }
+                  } catch (InterruptedException e) {
+                    throw e
+                  } catch (Exception e) {
+                    unstable("FAILED: ${displayName}")
+                    currentBuild.result = "FAILURE"
+                    println "Error: ${e.toString()}"
+                  }
+                }
+
+                if (it.scs) {
+                  stage("Provenance ${displayName}") {
+                    def externalParams = """
+                      {
+                        "target": {
+                          "name": "${targetAttr}",
+                          "repository": "${env.TARGET_REPO}",
+                          "ref": "${env.TARGET_COMMIT}"
+                        },
+                        "workflow": {
+                          "name": "${env.JOB_NAME}",
+                          "repository": "${env.GIT_URL}",
+                          "ref": "${env.GIT_COMMIT}"
+                        },
+                        "job": "${env.JOB_NAME}",
+                        "jobParams": ${JsonOutput.toJson(params)},
+                        "buildRun": "${env.BUILD_ID}" 
+                      }
+                    """
+                    // this environment block is only valid for the scope of this stage,
+                    // preventing timestamp collision when provenances are built in parallel
+                    withEnv([
+                      'PROVENANCE_BUILD_TYPE="https://github.com/tiiuae/ghaf-infra/blob/ea938e90/slsa/v1.0/L1/buildtype.md"',
+                      "PROVENANCE_BUILDER_ID=${env.JENKINS_URL}",
+                      "PROVENANCE_INVOCATION_ID=${env.BUILD_URL}",
+                      "PROVENANCE_TIMESTAMP_BEGIN=${timestampBegin}",
+                      "PROVENANCE_TIMESTAMP_FINISHED=${timestampEnd}",
+                      "PROVENANCE_EXTERNAL_PARAMS=${externalParams}"
+                    ]) {
+                      catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                        def outpath = "${scsdir}/provenance.json"
+                        sh """
+                          mkdir -p ${scsdir}
+                          provenance ${it.drvPath} --recursive --out ${outpath} 
+                        """
+                        utils.sign_file(outpath, "sig/${outpath}.sig", "INT-Ghaf-Devenv-Provenance")
+                      }
+                    }
+                  }
+
+                  stage("SBOM ${displayName}") {
+                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                      sh """
+                        mkdir -p ${scsdir}
+                        cd ${scsdir}
+                        sbomnix ${it.drvPath}
+                      """
+                    }
+                  }
+
+                  stage("Vulnxscan ${displayName}") {
+                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                      sh """
+                        mkdir -p ${scsdir}
+                        vulnxscan ${it.drvPath} --out vulns.csv
+                        csvcut vulns.csv --not-columns sortcol | csvlook -I >${scsdir}/vulns.txt
+                      """
+                    }
+                  }
+                }
+
+                if (it.archive) {
+                  stage("Archive ${displayName}") {
+                    script {
+                      utils.archive_artifacts("archive", targetAttr)
+                      utils.archive_artifacts("sig", targetAttr)
+                      if (it.scs) {
+                        utils.archive_artifacts("scs", targetAttr)
+                      }
+                    }
+                  }
+                }
+
+                if (it.hwtest_device != null) {
+                  stage("Test ${displayName}") {
+                    script {
+                      utils.ghaf_parallel_hw_test(targetAttr, it.hwtest_device, '_boot_bat_perf_')
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     }
-    stage('Build aarch64') {
+
+    stage('Build targets') {
       steps {
-        dir(WORKDIR) {
-          script {
-            utils.nix_build('.#packages.aarch64-linux.nxp-imx8mp-evk-debug', 'archive')
-            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'archive')
-            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'archive')
-            utils.nix_build('.#hydraJobs.nvidia-jetson-orin-agx-debug-bpmp.aarch64-linux', 'archive')
-            utils.nix_build('.#hydraJobs.nvidia-jetson-orin-nx-debug-bpmp.aarch64-linux', 'archive')
-            utils.nix_build('.#packages.aarch64-linux.doc')
-          }
-        }
-      }
-    }
-    stage('Provenance') {
-      steps {
-        dir(WORKDIR) {
-          script {
-            utils.sbomnix('provenance', '.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64')
-            utils.sbomnix('provenance', '.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64')
-            utils.sbomnix('provenance', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug')
-            utils.sbomnix('provenance', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug-installer')
-            utils.sbomnix('provenance', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-release')
-            utils.sbomnix('provenance', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-release-installer')
-            utils.sbomnix('provenance', '.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64')
-            utils.sbomnix('provenance', '.#packages.aarch64-linux.nxp-imx8mp-evk-debug')
-            utils.sbomnix('provenance', '.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug')
-            utils.sbomnix('provenance', '.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug')
-          }
-        }
-      }
-    }
-    stage('SBOM') {
-      steps {
-        dir(WORKDIR) {
-          script {
-            utils.sbomnix('sbomnix', '.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64')
-            utils.sbomnix('sbomnix', '.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64')
-            utils.sbomnix('sbomnix', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug')
-            utils.sbomnix('sbomnix', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug-installer')
-            utils.sbomnix('sbomnix', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-release')
-            utils.sbomnix('sbomnix', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-release-installer')
-            utils.sbomnix('sbomnix', '.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64')
-            utils.sbomnix('sbomnix', '.#packages.aarch64-linux.nxp-imx8mp-evk-debug')
-            utils.sbomnix('sbomnix', '.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug')
-            utils.sbomnix('sbomnix', '.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug')
-          }
-        }
-      }
-    }
-    stage('Vulnxscan') {
-      steps {
-        dir(WORKDIR) {
-          script {
-            utils.sbomnix('vulnxscan', '.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64')
-            utils.sbomnix('vulnxscan', '.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64')
-            utils.sbomnix('vulnxscan', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug')
-            utils.sbomnix('vulnxscan', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug-installer')
-            utils.sbomnix('vulnxscan', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-release')
-            utils.sbomnix('vulnxscan', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-release-installer')
-            utils.sbomnix('vulnxscan', '.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64')
-            utils.sbomnix('vulnxscan', '.#packages.aarch64-linux.nxp-imx8mp-evk-debug')
-            utils.sbomnix('vulnxscan', '.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug')
-            utils.sbomnix('vulnxscan', '.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug')
-          }
-        }
-      }
-    }
-    stage('HW test') {
-      steps {
-        dir(WORKDIR) {
-          script {
-            testset = "_boot_bat_perf_"
-            utils.ghaf_hw_test('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'orin-agx', testset)
-            utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'orin-agx', testset)
-            utils.ghaf_hw_test('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'orin-nx', testset)
-            utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'orin-nx', testset)
-            utils.ghaf_hw_test('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'lenovo-x1', testset)
-            utils.ghaf_hw_test('.#packages.x86_64-linux.generic-x86_64-debug', 'nuc', testset)
-            utils.ghaf_hw_test('.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64', 'riscv', testset)
-          }
+        script {
+          parallel target_jobs
         }
       }
     }
