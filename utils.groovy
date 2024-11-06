@@ -304,6 +304,19 @@ def ghaf_parallel_hw_test(String flakeref, String device_config, String testset=
   archive_artifacts("ghaf-parallel-hw-test", flakeref_trimmed)
 }
 
+def nix_eval_hydrajobs(List<Map> targets) {
+  def targetList = "\"${targets.join('" "')}\""
+  def object = readJSON text: sh(script: """
+    nix-eval-jobs --gc-roots-dir gcroots --force-recurse --expr ' \
+      let \
+        flake = builtins.getFlake ("git+file://" + toString ./.); \
+        lib = (import flake.inputs.nixpkgs { }).lib; \
+      in lib.getAttrs [ ${targetList} ] flake.hydraJobs;'
+  """, returnStdout: true).trim()
+
+  println "${object}"
+}
+
 def nix_eval_jobs(List<Map> targets) {
   // transform target names into valid nix arrays to be plugged into the expression below
   def x86_targets = "\"${targets.findAll { it.system == "x86_64-linux" }.target.join('" "')}\""
@@ -325,6 +338,10 @@ def nix_eval_jobs(List<Map> targets) {
 
   // target's name and derivation path are read from jobs.json and written into into jobs.txt
   sh "jq -r '.attr + \" \" + .drvPath' < jobs.json > jobs.txt"
+            // row that matches this target is grepped from jobs.txt, extracting the pre-evaluated derivation path
+            def drvPath = sh (script: "cat jobs.txt | grep ${target} | cut -d ' ' -f 2", returnStdout: true).trim()
+
+
 }
 
 return this
