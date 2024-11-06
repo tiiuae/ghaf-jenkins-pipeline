@@ -130,7 +130,7 @@ def ghaf_robot_test(String test_tags) {
             -v DEVICE_TYPE:$DEVICE_TAG \
             -v LOGIN:ghaf \
             -v PASSWORD:$DUT_PASS \
-            -v PLUG_USERNAME:ville-pekka.juntunen@unikie.com \
+            -v PLUG_USERNAME:ghaftester@gmail.com \
             -v PLUG_PASSWORD:$PLUG_PASS \
             -v SWITCH_TOKEN:$SW_TOKEN \
             -v SWITCH_SECRET:$SW_SECRET \
