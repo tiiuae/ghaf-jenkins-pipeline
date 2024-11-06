@@ -8,6 +8,7 @@
 def REPO_URL = 'https://github.com/tiiuae/ci-test-automation/'
 def DEF_LABEL = 'testagent'
 def TMP_IMG_DIR = 'image'
+def TMP_SIG_DIR = 'signature'
 def CONF_FILE_PATH = '/etc/jenkins/test_config.json'
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -164,6 +165,11 @@ pipeline {
           """
           img_relpath = run_cmd("find ${TMP_IMG_DIR} -type f -print -quit | grep .")
           println "Downloaded image to workspace: ${img_relpath}"
+          // Verify signature using the tooling from: https://github.com/tiiuae/ci-yubi
+          sh "wget -nv -P ${TMP_SIG_DIR} ${params.IMG_URL}.sig"
+          sig_relpath = run_cmd("find ${TMP_SIG_DIR} -type f -print -quit | grep .")
+          println "Downloaded signature to workspace: ${sig_relpath}"
+          sh "nix run github:tiiuae/ci-yubi/bdb2dbf#verify -- --path ${img_relpath} --sigfile ${sig_relpath}"
           // Uncompress, keeping only the decompressed image file
           if(img_relpath.endsWith("zst")) {
             sh "zstd -dfv ${img_relpath} && rm ${img_relpath}"
@@ -202,7 +208,6 @@ pipeline {
             unmount_cmd = "/run/wrappers/bin/sudo usbsdmux ${muxport} dut"
           } else {
             serial = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'usbhub_serial')
-            //dgrep = 'PSSD'
             mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${serial}; sleep 10"
             unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${serial}"
           }
