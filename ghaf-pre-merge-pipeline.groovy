@@ -8,6 +8,9 @@
 def REPO_URL = 'https://github.com/tiiuae/ghaf/'
 def WORKDIR  = 'ghaf'
 
+// Utils module will be loaded in the first pipeline stage
+def utils = null
+
 def targets = [
   [ system: "aarch64-linux", target: "doc", ],
   [ system: "x86_64-linux", target: "doc", ],
@@ -80,6 +83,7 @@ pipeline {
     }
     stage('Checkout') {
       steps {
+        script { utils = load "utils.groovy" }
         dir(WORKDIR) {
           // References:
           // https://www.jenkins.io/doc/pipeline/steps/params/scmgit/#scmgit
