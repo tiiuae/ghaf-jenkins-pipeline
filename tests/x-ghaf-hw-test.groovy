@@ -312,6 +312,7 @@ pipeline {
               archiveDirName: 'robot-plugin',
               outputPath: 'Robot-Framework/test-suites',
               outputFileName: '**/output.xml',
+              otherFiles: '**/*.png',
               disableArchiveOutput: false,
               reportFileName: '**/report.html',
               logFileName: '**/log.html',
