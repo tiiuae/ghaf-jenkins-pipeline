@@ -15,6 +15,9 @@ properties([
   githubProjectProperty(displayName: '', projectUrlStr: REPO_URL),
 ])
 
+// Record failed target(s)
+def failedTargets = []
+
 def targets = [
   [ system: "aarch64-linux", target: "doc",
     archive: false, hwtest_device: null
@@ -99,7 +102,6 @@ pipeline {
                   try {
                     if (drvPath) {
                       sh "nix build -L ${drvPath}\\^* ${opts}"
-
                       // only attempt signing if there is something to sign
                       if (it.archive) {
                         def img_relpath = utils.find_img_relpath(target, "archive")
@@ -113,6 +115,8 @@ pipeline {
                   } catch (Exception e) {
                     unstable("FAILED: ${target}")
                     currentBuild.result = "FAILURE"
+                    echo "Adding target: ${target} for failed builds table"
+                    failedTargets.add(target)
                     println "Error: ${e.toString()}"
                   }
                 }
@@ -153,13 +157,27 @@ pipeline {
         githublink="https://github.com/tiiuae/ghaf/commit/${env.TARGET_COMMIT}"
         servername = sh(script: 'uname -n', returnStdout: true).trim()
         echo "Server name:$servername"
+        def formattedFailedMessage = ""
+        if (failedTargets) {
+          formattedFailedMessage = failedTargets.collect { "- ${it.trim()}" }.join("\n")
+        } else {
+          formattedFailedMessage = "None"
+        }
         if (servername=="ghaf-jenkins-controller-dev") {
-          serverchannel="ghaf-jenkins-builds-failed"
+          serverchannel="ghaf-jenkins-builds-failed" // prod main build failures channel
           echo "Slack channel:$serverchannel"
-          message= "FAIL build: ${servername} ${env.JOB_NAME} [${env.BUILD_NUMBER}] (<${githublink}|The commits>)  (<${env.BUILD_URL}|The Build>)"
+          line1="*FAILURE:* ${env.BUILD_URL}".stripIndent()
+          line2="\n*Failed Targets:*".stripIndent()
+          line3="\n${formattedFailedMessage}".stripIndent()
+          line4="\n*Commit*: <${githublink}|${env.TARGET_COMMIT}>".stripIndent()
+          message = """
+          ${line1}
+          ${line2}
+          ${line3}
+          ${line4}""".stripIndent()
           slackSend (
             channel: "$serverchannel",
-            color: '#36a64f', // green
+            color: "danger",
             message: message
           )
         }
