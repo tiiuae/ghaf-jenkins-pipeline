@@ -28,3 +28,21 @@ jobs:
         run: npm install -g npm-groovy-lint@14.6.0
       - name: Fail if there are any errors
         run: npm-groovy-lint --failon error .
+      # Custom step to check for missing 'load "utils.groovy"' in specified files
+      - name: Check for missing imports
+        run: |
+          missing_import_files=$(grep -L 'load "utils.groovy"' \
+            fmo-os-main-pipeline.groovy \
+            ghaf-main-pipeline.groovy \
+            ghaf-nightly-pipeline.groovy \
+            ghaf-parallel-pipeline.groovy \
+            ghaf-pre-merge-pipeline.groovy \
+            ghaf-release-pipeline.groovy)
+
+          if [ -n "$missing_import_files" ]; then
+            echo "Error: The following files are missing 'load \"utils.groovy\"':"
+            echo "$missing_import_files"
+            exit 1
+          else
+            echo "All specified files contain 'load \"utils.groovy\"'."
+          fi
