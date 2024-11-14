@@ -12,15 +12,33 @@ def WORKDIR  = 'ghaf'
 def utils = null
 
 def targets = [
-  [ system: "aarch64-linux", target: "doc", ],
-  [ system: "x86_64-linux", target: "doc", ],
-  [ system: "x86_64-linux", target: "generic-x86_64-debug", ],
-  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug", ],
-  [ system: "x86_64-linux", target: "microchip-icicle-kit-debug-from-x86_64", ],
-  [ system: "aarch64-linux", target: "nvidia-jetson-orin-agx-debug", ],
-  [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-from-x86_64", ],
-  [ system: "aarch64-linux", target: "nvidia-jetson-orin-nx-debug", ],
-  [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-from-x86_64", ],
+  [ system: "aarch64-linux", target: "doc",
+    archive: false, hwtest_device: null
+  ],
+  [ system: "x86_64-linux", target: "doc",
+    archive: false, hwtest_device: null
+  ],
+  [ system: "x86_64-linux", target: "generic-x86_64-debug",
+    archive: true, hwtest_device: "nuc"
+  ],
+  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug",
+    archive: true, hwtest_device: "lenovo-x1"
+  ],
+  [ system: "x86_64-linux", target: "microchip-icicle-kit-debug-from-x86_64",
+    archive: true, hwtest_device: "riscv"
+  ],
+  [ system: "aarch64-linux", target: "nvidia-jetson-orin-agx-debug",
+    archive: true, hwtest_device: "orin-agx"
+  ],
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-from-x86_64",
+    archive: true, hwtest_device: "orin-agx"
+  ],
+  [ system: "aarch64-linux", target: "nvidia-jetson-orin-nx-debug",
+    archive: true, hwtest_device: "orin-nx"
+  ],
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-from-x86_64",
+    archive: true, hwtest_device: "orin-nx"
+  ],
 ]
 
 target_jobs = [:]
@@ -119,6 +137,7 @@ pipeline {
           )
           script {
             env.TARGET_COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+            env.ARTIFACTS_REMOTE_PATH = "stash/${env.BUILD_TAG}-commit_${env.TARGET_COMMIT}"
           }
         }
       }
@@ -151,9 +170,21 @@ pipeline {
 
               target_jobs["${it.target} (${it.system})"] = {
                 stage("Build ${target}") {
+                  def opts = ""
+                  if (it.archive) {
+                    opts = "--out-link archive/${target}"
+                  } else {
+                    opts = "--no-link"
+                  }
                   try {
                     if (drvPath) {
-                      sh "nix build --no-link -L ${drvPath}\\^*"
+                      sh "nix build -L ${drvPath}\\^* ${opts}"
+
+                      // only attempt signing if there is something to sign
+                      if (it.archive) {
+                        def img_relpath = utils.find_img_relpath(target, "archive")
+                        utils.sign_file("archive/${img_relpath}", "sig/${img_relpath}.sig", "INT-Ghaf-Devenv-Image")
+                      }
                     } else {
                       error("Target \"${target}\" was not found in packages")
                     }
@@ -163,6 +194,21 @@ pipeline {
                     unstable("FAILED: ${target}")
                     currentBuild.result = "FAILURE"
                     println "Error: ${e.toString()}"
+                  }
+                }
+
+                if (it.archive) {
+                  stage("Archive ${target}") {
+                    script {
+                      utils.archive_artifacts("archive", target)
+                      utils.archive_artifacts("sig", target)
+                    }
+                  }
+                }
+
+                if (it.hwtest_device != null) {
+                  stage("Test ${target}") {
+                    utils.ghaf_parallel_hw_test(target, it.hwtest_device, '_boot_bat_')
                   }
                 }
               }
@@ -181,6 +227,14 @@ pipeline {
     }
   }
   post {
+    always {
+      script {
+        if(utils) {
+        // Remove temporary, stashed build results before exiting the pipeline
+        utils.purge_artifacts(env.ARTIFACTS_REMOTE_PATH)
+        }
+      }
+    }
     success {
       script {
         setGitHubPullRequestStatus(
