@@ -8,6 +8,9 @@
 def REPO_URL = 'https://github.com/tiiuae/ghaf/'
 def WORKDIR  = 'ghaf'
 
+// Defines if there is need to run purge_artifacts
+def purge_stashed_artifacts = false
+
 // Utils module will be loaded in the first pipeline stage
 def utils = null
 
@@ -19,25 +22,25 @@ def targets = [
     archive: false, hwtest_device: null
   ],
   [ system: "x86_64-linux", target: "generic-x86_64-debug",
-    archive: true, hwtest_device: "nuc"
+    archive: false, hwtest_device: null
   ],
   [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug",
-    archive: true, hwtest_device: "lenovo-x1"
+    archive: false, hwtest_device: null
   ],
   [ system: "x86_64-linux", target: "microchip-icicle-kit-debug-from-x86_64",
-    archive: true, hwtest_device: "riscv"
+    archive: false, hwtest_device: null
   ],
   [ system: "aarch64-linux", target: "nvidia-jetson-orin-agx-debug",
-    archive: true, hwtest_device: "orin-agx"
+    archive: false, hwtest_device: null
   ],
   [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-from-x86_64",
-    archive: true, hwtest_device: "orin-agx"
+    archive: false, hwtest_device: null
   ],
   [ system: "aarch64-linux", target: "nvidia-jetson-orin-nx-debug",
-    archive: true, hwtest_device: "orin-nx"
+    archive: false, hwtest_device: null
   ],
   [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-from-x86_64",
-    archive: true, hwtest_device: "orin-nx"
+    archive: false, hwtest_device: null
   ],
 ]
 
@@ -202,6 +205,7 @@ pipeline {
                     script {
                       utils.archive_artifacts("archive", target)
                       utils.archive_artifacts("sig", target)
+                      purge_stashed_artifacts = true
                     }
                   }
                 }
@@ -229,7 +233,7 @@ pipeline {
   post {
     always {
       script {
-        if(utils) {
+        if(purge_stashed_artifacts) {
         // Remove temporary, stashed build results before exiting the pipeline
         utils.purge_artifacts(env.ARTIFACTS_REMOTE_PATH)
         }
