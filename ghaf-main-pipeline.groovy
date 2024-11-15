@@ -163,8 +163,8 @@ pipeline {
         } else {
           formattedFailedMessage = "None"
         }
-        if (servername=="ghaf-jenkins-controller-dev") {
-          serverchannel="ghaf-jenkins-builds-failed" // prod main build failures channel
+        if (servername=="ghaf-jenkins-controller-prod") {
+          serverchannel="ghaf-build" // prod main build failures channel
           echo "Slack channel:$serverchannel"
           line1="*FAILURE:* ${env.BUILD_URL}".stripIndent()
           line2="\n*Failed Targets:*".stripIndent()
