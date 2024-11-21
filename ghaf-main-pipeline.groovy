@@ -161,7 +161,7 @@ pipeline {
         if (failedTargets) {
           formattedFailedMessage = failedTargets.collect { "- ${it.trim()}" }.join("\n")
         } else {
-          formattedFailedMessage = "None"
+          formattedFailedMessage = "None, builds were ok, maybe HW tests failed?"
         }
         if (servername=="ghaf-jenkins-controller-prod") {
           serverchannel="ghaf-build" // prod main build failures channel
