@@ -235,6 +235,7 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
     // Add a link to failed test job(s) on the calling pipeline
     test_href = "<a href=\"${job.absoluteUrl}\">⛔ ${flakeref_short}</a>"
     currentBuild.description = "${currentBuild.description}<br>${test_href}"
+    return
   }
   // Copy test results from agent to controller to 'test-results' directory
   copyArtifacts(
@@ -293,6 +294,7 @@ def ghaf_parallel_hw_test(String flakeref, String device_config, String testset=
     // Add a link to failed test job(s) on the calling pipeline
     def test_href = "<a href=\"${job.absoluteUrl}\">⛔ ${flakeref_trimmed}</a>"
     currentBuild.description = "${currentBuild.description}<br>${test_href}"
+    return
   }
   // Copy test results from agent to controller to 'test-results' directory
   copyArtifacts(
@@ -325,14 +327,15 @@ def nix_eval_jobs(List<Map> targets) {
         aarch64-linux = lib.getAttrs [ ${aarch64_targets} ] flake.packages.aarch64-linux; \
       }' > jobs.json
 
-    jq -r '.attr + \" \" + .drvPath' < jobs.json > jobs.txt
+    jq -s 'map({ (.attr): { drvPath, error } }) | add' < jobs.json > results.json
   """
 
   targets.each {
-    it.drvPath = sh (
-      script: "grep '^${it.system}.${it.target}\\s' jobs.txt | cut -d ' ' -f 2",
-      returnStdout: true
-    ).trim()
+    target = "${it.system}.${it.target}"
+    drvPath = sh(script: "jq -r '.\"${target}\".drvPath' < results.json", returnStdout: true).trim()
+    evalError = sh(script: "jq -r '.\"${target}\".error' < results.json", returnStdout: true).trim()
+    it.drvPath = drvPath
+    it.error = evalError == "null" ? null : evalError
   }
 }
 
@@ -347,15 +350,143 @@ def nix_eval_hydrajobs(List<Map> targets) {
         lib = (import flake.inputs.nixpkgs { }).lib; \
       in lib.getAttrs [ ${targetList} ] flake.hydraJobs' > jobs.json
 
-    jq -r '.attr + \" \" + .drvPath' < jobs.json > jobs.txt
+    jq -s 'map({ (.attr): { drvPath, error } }) | add' < jobs.json > results.json
   """
 
   targets.each {
-    it.drvPath = sh (
-      script: "grep '^${it.target}.${it.system}\\s' jobs.txt | cut -d ' ' -f 2",
-      returnStdout: true
-    ).trim()
+    target = "${it.system}.${it.target}"
+    drvPath = sh(script: "jq -r '.\"${target}\".drvPath' < results.json", returnStdout: true).trim()
+    evalError = sh(script: "jq -r '.\"${target}\".error' < results.json", returnStdout: true).trim()
+    it.drvPath = drvPath
+    it.error = evalError == "null" ? null : evalError
   }
+}
+
+def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false) {
+  def target_jobs = [:]
+  targets.each {
+    def timestampBegin = ""
+    def timestampEnd = ""
+    def displayName = "${it.target} (${it.system})"
+    def targetAttr = "${it.system}.${it.target}"
+    def scsdir = "scs/${targetAttr}/scs"
+
+    target_jobs[displayName] = {
+      stage("Build ${displayName}") {
+        def opts = ""
+        if (it.archive) { 
+          opts = "--out-link archive/${targetAttr}"
+        } else {
+          opts = "--no-link"
+        }
+        try {
+          if (it.error) {
+            error("Error in evaluation! ${it.error}")
+          }
+
+          timestampBegin = sh(script: "date +%s", returnStdout: true).trim()
+          sh "nix build -L ${it.drvPath}\\^* ${opts}"
+          timestampEnd = sh(script: "date +%s", returnStdout: true).trim()
+
+          // only attempt signing if there is something to sign
+          if (it.archive) {
+            def img_relpath = find_img_relpath(targetAttr, "archive")
+            sign_file("archive/${img_relpath}", "sig/${img_relpath}.sig", "INT-Ghaf-Devenv-Image")
+          };
+
+        } catch (InterruptedException e) {
+          throw e
+        } catch (Exception e) {
+          unstable("FAILED: ${displayName}")
+          currentBuild.result = "FAILURE"
+          println "Error: ${e.toString()}"
+        }
+      }
+
+      if (it.scs) {
+        stage("Provenance ${displayName}") {
+          def externalParams = """
+            {
+              "target": {
+                "name": "${targetAttr}",
+                "repository": "${env.TARGET_REPO}",
+                "ref": "${env.TARGET_COMMIT}"
+              },
+              "workflow": {
+                "name": "${env.JOB_NAME}",
+                "repository": "${env.GIT_URL}",
+                "ref": "${env.GIT_COMMIT}"
+              },
+              "job": "${env.JOB_NAME}",
+              "jobParams": ${JsonOutput.toJson(params)},
+              "buildRun": "${env.BUILD_ID}" 
+            }
+          """
+          // this environment block is only valid for the scope of this stage,
+          // preventing timestamp collision when provenances are built in parallel
+          withEnv([
+            'PROVENANCE_BUILD_TYPE="https://github.com/tiiuae/ghaf-infra/blob/ea938e90/slsa/v1.0/L1/buildtype.md"',
+            "PROVENANCE_BUILDER_ID=${env.JENKINS_URL}",
+            "PROVENANCE_INVOCATION_ID=${env.BUILD_URL}",
+            "PROVENANCE_TIMESTAMP_BEGIN=${timestampBegin}",
+            "PROVENANCE_TIMESTAMP_FINISHED=${timestampEnd}",
+            "PROVENANCE_EXTERNAL_PARAMS=${externalParams}"
+          ]) {
+            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+              def outpath = "${scsdir}/provenance.json"
+              sh """
+                mkdir -p ${scsdir}
+                provenance ${it.drvPath} --recursive --out ${outpath} 
+              """
+              sign_file(outpath, "sig/${outpath}.sig", "INT-Ghaf-Devenv-Provenance")
+            }
+          }
+        }
+
+        stage("SBOM ${displayName}") {
+          catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+            sh """
+              mkdir -p ${scsdir}
+              cd ${scsdir}
+              sbomnix ${it.drvPath}
+            """
+          }
+        }
+
+        stage("Vulnxscan ${displayName}") {
+          catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+            sh """
+              mkdir -p ${scsdir}
+              vulnxscan ${it.drvPath} --out vulns.csv
+              csvcut vulns.csv --not-columns sortcol | csvlook -I >${scsdir}/vulns.txt
+            """
+          }
+        }
+      }
+
+      if (it.archive) {
+        stage("Archive ${displayName}") {
+          script {
+            archive_artifacts("archive", targetAttr)
+            archive_artifacts("sig", targetAttr)
+            if (it.scs) {
+              archive_artifacts("scs", targetAttr)
+            }
+          }
+        }
+      }
+
+      if (!skip_hw_test && it.hwtest_device != null) {
+        stage("Test ${displayName}") {
+          script {
+            ghaf_parallel_hw_test(targetAttr, it.hwtest_device, '_boot_bat_perf_')
+          }
+        }
+      }
+    }
+  }
+
+  return target_jobs
 }
 
 return this
