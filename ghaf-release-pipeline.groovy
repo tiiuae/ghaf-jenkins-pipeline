@@ -19,6 +19,45 @@ properties([
   ])
 ])
 
+def targets = [
+  // docs
+  [ system: "x86_64-linux", target: "doc",
+    archive: false
+  ],
+
+  // lenovo x1
+  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug",
+    archive: true, scs: true, hwtest_device: "lenovo-x1"
+  ],
+  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug-installer",
+    archive: true, scs: true
+  ],
+
+  // nvidia orin
+  [ system: "aarch64-linux", target: "nvidia-jetson-orin-agx-debug",
+    archive: true, scs: true, hwtest_device: "orin-agx"
+  ],
+  [ system: "aarch64-linux", target: "nvidia-jetson-orin-nx-debug",
+    archive: true, scs: true, hwtest_device: "orin-nx"
+  ],
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-from-x86_64",
+    archive: true, scs: true, hwtest_device: "orin-agx"
+  ],
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-from-x86_64",
+    archive: true, scs: true, hwtest_device: "orin-nx"
+  ],
+
+  // others
+  [ system: "x86_64-linux", target: "generic-x86_64-debug",
+    archive: true, scs: true, hwtest_device: "nuc"
+  ],
+  [ system: "x86_64-linux", target: "microchip-icicle-kit-debug-from-x86_64",
+    archive: true, scs: true, hwtest_device: "riscv"
+  ],
+]
+
+target_jobs = [:]
+
 ////////////////////////////////////////////////////////////////////////////////
 
 pipeline {
@@ -50,96 +89,41 @@ pipeline {
         }
       }
     }
-    stage('Build x86_64') {
+
+    stage('Evaluate') {
       steps {
         dir(WORKDIR) {
           script {
-            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug-installer', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.generic-x86_64-debug', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64', 'archive')
-            utils.nix_build('.#packages.x86_64-linux.doc', 'archive')
+            utils.nix_eval_jobs(targets)
+            target_jobs = utils.create_parallel_stages(targets, skip_hw_test=true)
           }
         }
       }
     }
-    stage('Build aarch64') {
+
+    stage('Build targets') {
       steps {
-        dir(WORKDIR) {
-          script {
-            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'archive')
-            utils.nix_build('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'archive')
-          }
+        script {
+          parallel target_jobs
         }
       }
     }
-    stage('Provenance') {
+
+    stage('Hardware tests') {
       steps {
-        dir(WORKDIR) {
-          script {
-            utils.sbomnix('provenance', '.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64')
-            utils.sbomnix('provenance', '.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64')
-            utils.sbomnix('provenance', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug')
-            utils.sbomnix('provenance', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug-installer')
-            utils.sbomnix('provenance', '.#packages.x86_64-linux.generic-x86_64-debug')
-            utils.sbomnix('provenance', '.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64')
-            utils.sbomnix('provenance', '.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug')
-            utils.sbomnix('provenance', '.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug')
-          }
-        }
-      }
-    }
-    stage('SBOM') {
-      steps {
-        dir(WORKDIR) {
-          script {
-            utils.sbomnix('sbomnix', '.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64')
-            utils.sbomnix('sbomnix', '.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64')
-            utils.sbomnix('sbomnix', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug')
-            utils.sbomnix('sbomnix', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug-installer')
-            utils.sbomnix('sbomnix', '.#packages.x86_64-linux.generic-x86_64-debug')
-            utils.sbomnix('sbomnix', '.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64')
-            utils.sbomnix('sbomnix', '.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug')
-            utils.sbomnix('sbomnix', '.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug')
-          }
-        }
-      }
-    }
-    stage('Vulnxscan') {
-      steps {
-        dir(WORKDIR) {
-          script {
-            utils.sbomnix('vulnxscan', '.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64')
-            utils.sbomnix('vulnxscan', '.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64')
-            utils.sbomnix('vulnxscan', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug')
-            utils.sbomnix('vulnxscan', '.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug-installer')
-            utils.sbomnix('vulnxscan', '.#packages.x86_64-linux.generic-x86_64-debug')
-            utils.sbomnix('vulnxscan', '.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64')
-            utils.sbomnix('vulnxscan', '.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug')
-            utils.sbomnix('vulnxscan', '.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug')
-          }
-        }
-      }
-    }
-    stage('HW test') {
-      steps {
-        dir(WORKDIR) {
-          script {
-            testset = "_boot_bat_perf_"
-            utils.ghaf_hw_test('.#packages.x86_64-linux.nvidia-jetson-orin-agx-debug-from-x86_64', 'orin-agx', testset)
-            utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-agx-debug', 'orin-agx', testset)
-            utils.ghaf_hw_test('.#packages.x86_64-linux.nvidia-jetson-orin-nx-debug-from-x86_64', 'orin-nx', testset)
-            utils.ghaf_hw_test('.#packages.aarch64-linux.nvidia-jetson-orin-nx-debug', 'orin-nx', testset)
-            utils.ghaf_hw_test('.#packages.x86_64-linux.lenovo-x1-carbon-gen11-debug', 'lenovo-x1', testset)
-            utils.ghaf_hw_test('.#packages.x86_64-linux.generic-x86_64-debug', 'nuc', testset)
-            utils.ghaf_hw_test('.#packages.x86_64-linux.microchip-icicle-kit-debug-from-x86_64', 'riscv', testset)
+        script {
+          targets.each {
+            if (it.hwtest_device != null) {
+              stage("Test ${it.target} (${it.system})") {
+                script {
+                  def targetAttr = "${it.system}.${it.target}"
+                  utils.ghaf_hw_test(targetAttr, it.hwtest_device, '_boot_bat_perf_')
+                }
+              }
+            }
           }
         }
       }
     }
   }
 }
-
-////////////////////////////////////////////////////////////////////////////////
