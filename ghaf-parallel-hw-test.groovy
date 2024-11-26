@@ -279,7 +279,7 @@ pipeline {
   post {
     always {
       // Archive Robot-Framework results as artifacts
-      archiveArtifacts allowEmptyArchive: true, artifacts: 'Robot-Framework/test-suites/**/*.html, Robot-Framework/test-suites/**/*.xml, Robot-Framework/test-suites/**/*.png'
+      archiveArtifacts allowEmptyArchive: true, artifacts: 'Robot-Framework/test-suites/**/*.html, Robot-Framework/test-suites/**/*.xml, Robot-Framework/test-suites/**/*.png, Robot-Framework/test-suites/**/*.txt'
       // Publish all results under Robot-Framework/test-suites subfolders
       step(
         [$class: 'RobotPublisher',

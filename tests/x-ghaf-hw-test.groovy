@@ -305,6 +305,7 @@ pipeline {
           archive = "Robot-Framework/test-suites/**/*.html"
           archive = "${archive}, Robot-Framework/test-suites/**/*.xml"
           archive = "${archive}, Robot-Framework/test-suites/**/*.png"
+          archive = "${archive}, Robot-Framework/test-suites/**/*.txt"
           archiveArtifacts allowEmptyArchive: true, artifacts: archive
           // Publish all results under Robot-Framework/test-suites subfolders
           step(
