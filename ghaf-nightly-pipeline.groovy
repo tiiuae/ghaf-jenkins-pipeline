@@ -17,6 +17,9 @@ properties([
   githubProjectProperty(displayName: '', projectUrlStr: REPO_URL),
 ])
 
+////////////////////////////////////////////////////////////////////////////////
+
+def target_jobs = [:]
 def targets = [
   // docs
   [ system: "x86_64-linux", target: "doc",
@@ -66,7 +69,7 @@ def targets = [
   ], 
 ]
 
-hydrajobs_targets = [
+def hydrajobs_targets = [
   // nvidia orin with bpmp enabled
   [ system: "aarch64-linux",target: "nvidia-jetson-orin-agx-debug-bpmp", 
     archive: true
@@ -81,8 +84,6 @@ hydrajobs_targets = [
     archive: true
   ], 
 ]
-
-target_jobs = [:]
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -128,132 +129,12 @@ pipeline {
       steps {
         dir(WORKDIR) {
           script {
-            // evaluation adds the .drvPath attribute to our map
             utils.nix_eval_jobs(targets)
             // remove when hydrajobs is retired from ghaf
             utils.nix_eval_hydrajobs(hydrajobs_targets)
             targets = targets + hydrajobs_targets
 
-            targets.each {
-              def timestampBegin = ""
-              def timestampEnd = ""
-              def displayName = "${it.target} (${it.system})"
-              def targetAttr = "${it.system}.${it.target}"
-              def scsdir = "scs/${targetAttr}/scs"
-
-              target_jobs[displayName] = {
-                stage("Build ${displayName}") {
-                  def opts = ""
-                  if (it.archive) { 
-                    opts = "--out-link archive/${targetAttr}"
-                  } else {
-                    opts = "--no-link"
-                  }
-                  try {
-                    if (it.drvPath) {
-                      timestampBegin = sh(script: "date +%s", returnStdout: true).trim()
-                      sh "nix build -L ${it.drvPath}\\^* ${opts}"
-                      timestampEnd = sh(script: "date +%s", returnStdout: true).trim()
-
-                      // only attempt signing if there is something to sign
-                      if (it.archive) {
-                        def img_relpath = utils.find_img_relpath(targetAttr, "archive")
-                        utils.sign_file("archive/${img_relpath}", "sig/${img_relpath}.sig", "INT-Ghaf-Devenv-Image")
-                      };
-                    } else {
-                      error("Derivation was not found for \"${targetAttr}\"")
-                    }
-                  } catch (InterruptedException e) {
-                    throw e
-                  } catch (Exception e) {
-                    unstable("FAILED: ${displayName}")
-                    currentBuild.result = "FAILURE"
-                    println "Error: ${e.toString()}"
-                  }
-                }
-
-                if (it.scs) {
-                  stage("Provenance ${displayName}") {
-                    def externalParams = """
-                      {
-                        "target": {
-                          "name": "${targetAttr}",
-                          "repository": "${env.TARGET_REPO}",
-                          "ref": "${env.TARGET_COMMIT}"
-                        },
-                        "workflow": {
-                          "name": "${env.JOB_NAME}",
-                          "repository": "${env.GIT_URL}",
-                          "ref": "${env.GIT_COMMIT}"
-                        },
-                        "job": "${env.JOB_NAME}",
-                        "jobParams": ${JsonOutput.toJson(params)},
-                        "buildRun": "${env.BUILD_ID}" 
-                      }
-                    """
-                    // this environment block is only valid for the scope of this stage,
-                    // preventing timestamp collision when provenances are built in parallel
-                    withEnv([
-                      'PROVENANCE_BUILD_TYPE="https://github.com/tiiuae/ghaf-infra/blob/ea938e90/slsa/v1.0/L1/buildtype.md"',
-                      "PROVENANCE_BUILDER_ID=${env.JENKINS_URL}",
-                      "PROVENANCE_INVOCATION_ID=${env.BUILD_URL}",
-                      "PROVENANCE_TIMESTAMP_BEGIN=${timestampBegin}",
-                      "PROVENANCE_TIMESTAMP_FINISHED=${timestampEnd}",
-                      "PROVENANCE_EXTERNAL_PARAMS=${externalParams}"
-                    ]) {
-                      catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                        def outpath = "${scsdir}/provenance.json"
-                        sh """
-                          mkdir -p ${scsdir}
-                          provenance ${it.drvPath} --recursive --out ${outpath} 
-                        """
-                        utils.sign_file(outpath, "sig/${outpath}.sig", "INT-Ghaf-Devenv-Provenance")
-                      }
-                    }
-                  }
-
-                  stage("SBOM ${displayName}") {
-                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                      sh """
-                        mkdir -p ${scsdir}
-                        cd ${scsdir}
-                        sbomnix ${it.drvPath}
-                      """
-                    }
-                  }
-
-                  stage("Vulnxscan ${displayName}") {
-                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                      sh """
-                        mkdir -p ${scsdir}
-                        vulnxscan ${it.drvPath} --out vulns.csv
-                        csvcut vulns.csv --not-columns sortcol | csvlook -I >${scsdir}/vulns.txt
-                      """
-                    }
-                  }
-                }
-
-                if (it.archive) {
-                  stage("Archive ${displayName}") {
-                    script {
-                      utils.archive_artifacts("archive", targetAttr)
-                      utils.archive_artifacts("sig", targetAttr)
-                      if (it.scs) {
-                        utils.archive_artifacts("scs", targetAttr)
-                      }
-                    }
-                  }
-                }
-
-                if (it.hwtest_device != null) {
-                  stage("Test ${displayName}") {
-                    script {
-                      utils.ghaf_parallel_hw_test(targetAttr, it.hwtest_device, '_boot_bat_perf_')
-                    }
-                  }
-                }
-              }
-            }
+            target_jobs = utils.create_parallel_stages(targets, skip_hw_test=true)
           }
         }
       }
@@ -266,7 +147,22 @@ pipeline {
         }
       }
     }
+
+    stage('Hardware tests') {
+      steps {
+        script {
+          targets.each {
+            if (it.hwtest_device != null) {
+              stage("Test ${it.target} (${it.system})") {
+                script {
+                  def targetAttr = "${it.system}.${it.target}"
+                  utils.ghaf_hw_test(targetAttr, it.hwtest_device, '_boot_bat_perf_')
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }
-
-////////////////////////////////////////////////////////////////////////////////
