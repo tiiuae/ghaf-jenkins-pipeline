@@ -202,18 +202,16 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
     return
   }
   // Compose the image URL; testagent will need this URL to download the image
-  imgdir = find_img_relpath(flakeref, 'archive')
-  remote_path = "artifacts/${env.ARTIFACTS_REMOTE_PATH}"
-  img_url = "${env.JENKINS_URL}/${remote_path}/${imgdir}"
-  build_url = "${env.JENKINS_URL}/job/${env.JOB_NAME}/${env.BUILD_ID}"
-  build_href = "<a href=\"${build_url}\">${env.JOB_NAME}#${env.BUILD_ID}</a>"
-  flakeref_trimmed = "${flakeref_trim(flakeref)}"
-  // 'short' flakeref: everything after the last occurence of '.' (if any)
-  flakeref_short = flakeref_trimmed.replaceAll(/.*\.+/,"")
-  description = "Triggered by ${build_href}<br>(${flakeref_short})"
+  def imgdir = find_img_relpath(flakeref, 'archive')
+  def remote_path = "artifacts/${env.ARTIFACTS_REMOTE_PATH}"
+  def img_url = "${env.JENKINS_URL}/${remote_path}/${imgdir}"
+  def build_url = "${env.JENKINS_URL}/job/${env.JOB_NAME}/${env.BUILD_ID}"
+  def build_href = "<a href=\"${build_url}\">${env.JOB_NAME}#${env.BUILD_ID}</a>"
+  def flakeref_trimmed = "${flakeref_trim(flakeref)}"
+  def description = "Triggered by ${build_href}<br>(${flakeref_trimmed})"
   // Trigger a build in 'ghaf-hw-test' pipeline.
   // 'build' step is documented in https://plugins.jenkins.io/pipeline-build-step/
-  job = build(
+  def job = build(
     job: "ghaf-hw-test",
     propagate: false,
     parameters: [
@@ -233,7 +231,7 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
     unstable("FAILED: ${device_config} ${testset}")
     currentBuild.result = "FAILURE"
     // Add a link to failed test job(s) on the calling pipeline
-    test_href = "<a href=\"${job.absoluteUrl}\">⛔ ${flakeref_short}</a>"
+    def test_href = "<a href=\"${job.absoluteUrl}\">⛔ ${flakeref_trimmed}</a>"
     currentBuild.description = "${currentBuild.description}<br>${test_href}"
     return
   }
@@ -244,66 +242,7 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
       target: "ghaf-hw-test/${flakeref_trimmed}/test-results",
   )
   // Archive the test results
-  archive_artifacts("ghaf-hw-test")
-}
-
-def ghaf_parallel_hw_test(String flakeref, String device_config, String testset='_boot_') {
-  testagent_nodes = nodesByLabel(label: "$device_config", offline: false)
-  if (!testagent_nodes) {
-    println "Warning: Skipping HW test '$flakeref', no test agents online"
-    unstable("No test agents online")
-    return
-  }
-  if (!env.ARTIFACTS_REMOTE_PATH) {
-    println "Warning: skipping HW test '$flakeref', ARTIFACTS_REMOTE_PATH not set"
-    return
-  }
-  if (!env.JENKINS_URL) {
-    println "Warning: skipping HW test '$flakeref', JENKINS_URL not set"
-    return
-  }
-  // Compose the image URL; testagent will need this URL to download the image
-  def imgdir = find_img_relpath(flakeref, 'archive')
-  def remote_path = "artifacts/${env.ARTIFACTS_REMOTE_PATH}"
-  def img_url = "${env.JENKINS_URL}/${remote_path}/${imgdir}"
-  def build_url = "${env.JENKINS_URL}/job/${env.JOB_NAME}/${env.BUILD_ID}"
-  def build_href = "<a href=\"${build_url}\">${env.JOB_NAME}#${env.BUILD_ID}</a>"
-  def flakeref_trimmed = "${flakeref_trim(flakeref)}"
-  def description = "Triggered by ${build_href}<br>(${flakeref_trimmed})"
-  // Trigger a build in 'ghaf-parallel-hw-test' pipeline.
-  // 'build' step is documented in https://plugins.jenkins.io/pipeline-build-step/
-  def job = build(
-    job: "ghaf-parallel-hw-test",
-    propagate: false,
-    parameters: [
-      string(name: "LABEL", value: "$device_config"),
-      string(name: "DEVICE_CONFIG_NAME", value: "$device_config"),
-      string(name: "IMG_URL", value: "$img_url"),
-      string(name: "DESC", value: "$description"),
-      string(name: "TESTSET", value: "$testset"),
-      string(name: "TARGET", value: "$flakeref_trimmed"),
-    ],
-    wait: true,
-  )
-  println "ghaf-parallel-hw-test result (${device_config}:${testset}): ${job.result}"
-  // If the test job failed, mark the current step unstable and set
-  // the final build result failed, but continue the pipeline execution.
-  if (job.result != "SUCCESS") {
-    unstable("FAILED: ${device_config} ${testset}")
-    currentBuild.result = "FAILURE"
-    // Add a link to failed test job(s) on the calling pipeline
-    def test_href = "<a href=\"${job.absoluteUrl}\">⛔ ${flakeref_trimmed}</a>"
-    currentBuild.description = "${currentBuild.description}<br>${test_href}"
-    return
-  }
-  // Copy test results from agent to controller to 'test-results' directory
-  copyArtifacts(
-      projectName: "ghaf-parallel-hw-test",
-      selector: specific("${job.number}"),
-      target: "ghaf-parallel-hw-test/${flakeref_trimmed}/test-results",
-  )
-  // Archive the test results
-  archive_artifacts("ghaf-parallel-hw-test", flakeref_trimmed)
+  archive_artifacts("ghaf-hw-test", flakeref_trimmed)
 }
 
 def nix_eval_jobs(List<Map> targets) {
@@ -315,7 +254,7 @@ def nix_eval_jobs(List<Map> targets) {
   aarch64_targets = aarch64_targets ? "\"${aarch64_targets.join('" "')}\"" : ""
 
   // nix-eval-jobs is used to evaluate the targets in parallel and compute derivation paths.
-  // nix expression is used to create an attset on the fly which is a subset of #packages, 
+  // nix expression is used to create an attset on the fly which is a subset of #packages,
   // but optimized to only include the targets we want to build
   sh """
     nix-eval-jobs --gc-roots-dir gcroots --force-recurse --expr ' \
@@ -374,7 +313,7 @@ def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false) {
     target_jobs[displayName] = {
       stage("Build ${displayName}") {
         def opts = ""
-        if (it.archive) { 
+        if (it.archive) {
           opts = "--out-link archive/${targetAttr}"
         } else {
           opts = "--no-link"
@@ -419,7 +358,7 @@ def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false) {
               },
               "job": "${env.JOB_NAME}",
               "jobParams": ${JsonOutput.toJson(params)},
-              "buildRun": "${env.BUILD_ID}" 
+              "buildRun": "${env.BUILD_ID}"
             }
           """
           // this environment block is only valid for the scope of this stage,
@@ -436,7 +375,7 @@ def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false) {
               def outpath = "${scsdir}/provenance.json"
               sh """
                 mkdir -p ${scsdir}
-                provenance ${it.drvPath} --recursive --out ${outpath} 
+                provenance ${it.drvPath} --recursive --out ${outpath}
               """
               sign_file(outpath, "sig/${outpath}.sig", "INT-Ghaf-Devenv-Provenance")
             }
@@ -479,7 +418,7 @@ def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false) {
       if (!skip_hw_test && it.hwtest_device != null) {
         stage("Test ${displayName}") {
           script {
-            ghaf_parallel_hw_test(targetAttr, it.hwtest_device, '_boot_bat_perf_')
+            ghaf_hw_test(targetAttr, it.hwtest_device, '_boot_bat_perf_')
           }
         }
       }

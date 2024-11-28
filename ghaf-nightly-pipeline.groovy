@@ -66,23 +66,23 @@ def targets = [
   ],
   [ system: "aarch64-linux", target: "nxp-imx8mp-evk-debug",
     archive: true, scs: true
-  ], 
+  ],
 ]
 
 def hydrajobs_targets = [
   // nvidia orin with bpmp enabled
-  [ system: "aarch64-linux",target: "nvidia-jetson-orin-agx-debug-bpmp", 
+  [ system: "aarch64-linux",target: "nvidia-jetson-orin-agx-debug-bpmp",
     archive: true
-  ], 
-  [ system: "aarch64-linux",target: "nvidia-jetson-orin-nx-debug-bpmp", 
+  ],
+  [ system: "aarch64-linux",target: "nvidia-jetson-orin-nx-debug-bpmp",
     archive: true
-  ], 
-  [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-bpmp-from-x86_64", 
+  ],
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-bpmp-from-x86_64",
     archive: true
-  ], 
-  [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-bpmp-from-x86_64", 
+  ],
+  [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-bpmp-from-x86_64",
     archive: true
-  ], 
+  ],
 ]
 
 ////////////////////////////////////////////////////////////////////////////////
