@@ -5,7 +5,6 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-def REPO_URL = 'https://github.com/tiiuae/ci-test-automation/'
 def TMP_IMG_DIR = './image'
 def CONF_FILE_PATH = '/etc/jenkins/test_config.json'
 
@@ -13,6 +12,7 @@ def CONF_FILE_PATH = '/etc/jenkins/test_config.json'
 
 properties([
   parameters([
+    string(name: 'REPO_URL', defaultValue: 'https://github.com/tiiuae/ci-test-automation/', description: 'Select ci-test-automation repository. Allow testing also with a forked repository'),
     string(name: 'IMG_URL', defaultValue: 'https://ghaf-jenkins-controller-dev.northeurope.cloudapp.azure.com/artifacts/ghaf-release-pipeline/build_8-commit_5c270677069b96cc43ae2578a72ece272d7e1a37/packages.aarch64-linux.nvidia-jetson-orin-nx-debug/sd-image/nixos-sd-image-24.11.20240802.c488d21-aarch64-linux.img.zst', description: 'Target image url'),
     string(name: 'BRANCH', defaultValue: 'main', description: 'ci-test-automation branch to checkout'),
     string(name: 'TEST_TAGS', defaultValue: '', description: 'Target test tags device need to match with given image URL!(combination of device and tag(s) or just a tag e.g.: bootANDorin-nx, SP-T65, SP-T45ORSP-T60 etc..)'),
