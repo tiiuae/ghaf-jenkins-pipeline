@@ -186,7 +186,7 @@ pipeline {
             utils.nix_eval_hydrajobs(hydrajobs_targets)
             targets = targets + hydrajobs_targets
 
-            target_jobs = utils.create_parallel_stages(targets, skip_hw_test=true)
+            target_jobs = utils.create_parallel_stages(targets, testset=null)
           }
         }
       }

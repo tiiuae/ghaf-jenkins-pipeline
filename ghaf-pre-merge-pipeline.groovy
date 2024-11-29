@@ -192,7 +192,7 @@ pipeline {
         dir(WORKDIR) {
           script {
             utils.nix_eval_jobs(targets)
-            target_jobs = utils.create_parallel_stages(targets)
+            target_jobs = utils.create_parallel_stages(targets, testset=null)
           }
         }
       }

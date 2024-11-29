@@ -301,9 +301,7 @@ def nix_eval_hydrajobs(List<Map> targets) {
   }
 }
 
-
-// , List failedTargets = []
-def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false, List failedTargets = null) {
+def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', List failedTargets = null) {
   def target_jobs = [:]
   targets.each {
     def timestampBegin = ""
@@ -419,10 +417,10 @@ def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false, List f
         }
       }
 
-      if (!skip_hw_test && it.hwtest_device != null) {
+      if (testset != null && it.hwtest_device != null) {
         stage("Test ${displayName}") {
           script {
-            ghaf_hw_test(targetAttr, it.hwtest_device, '_boot_bat_perf_')
+            ghaf_hw_test(targetAttr, it.hwtest_device, testset)
           }
         }
       }
@@ -433,5 +431,3 @@ def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false, List f
 }
 
 return this
-
-////////////////////////////////////////////////////////////////////////////////
