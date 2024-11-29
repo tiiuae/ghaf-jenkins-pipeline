@@ -46,36 +46,64 @@ properties([
   ])
 ])
 
+def target_jobs = [:]
+
 ////////////////////////////////////////////////////////////////////////////////
 
-def target_jobs = [:]
 def targets = [
-  [ system: "aarch64-linux", target: "doc",
-    archive: false, hwtest_device: null
+  [ target: "doc",
+    system: "aarch64-linux",
+    archive: false,
+    scs: false,
+    hwtest_device: null,
   ],
-  [ system: "x86_64-linux", target: "doc",
-    archive: false, hwtest_device: null
+  [ target: "doc",
+    system: "x86_64-linux",
+    archive: false,
+    scs: false,
+    hwtest_device: null,
   ],
-  [ system: "x86_64-linux", target: "generic-x86_64-debug",
-    archive: false, hwtest_device: null
+  [ target: "generic-x86_64-debug",
+    system: "x86_64-linux",
+    archive: false,
+    scs: false,
+    hwtest_device: null,
   ],
-  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug",
-    archive: false, hwtest_device: null
+  [ target: "lenovo-x1-carbon-gen11-debug",
+    system: "x86_64-linux",
+    archive: false,
+    scs: false,
+    hwtest_device: null,
   ],
-  [ system: "x86_64-linux", target: "microchip-icicle-kit-debug-from-x86_64",
-    archive: false, hwtest_device: null
+  [ target: "microchip-icicle-kit-debug-from-x86_64",
+    system: "x86_64-linux",
+    archive: false,
+    scs: false,
+    hwtest_device: null,
   ],
-  [ system: "aarch64-linux", target: "nvidia-jetson-orin-agx-debug",
-    archive: false, hwtest_device: null
+  [ target: "nvidia-jetson-orin-agx-debug",
+    system: "aarch64-linux",
+    archive: false,
+    scs: false,
+    hwtest_device: null,
   ],
-  [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-from-x86_64",
-    archive: false, hwtest_device: null
+  [ target: "nvidia-jetson-orin-agx-debug-from-x86_64",
+    system: "x86_64-linux",
+    archive: false,
+    scs: false,
+    hwtest_device: null,
   ],
-  [ system: "aarch64-linux", target: "nvidia-jetson-orin-nx-debug",
-    archive: false, hwtest_device: null
+  [ target: "nvidia-jetson-orin-nx-debug",
+    system: "aarch64-linux",
+    archive: false,
+    scs: false,
+    hwtest_device: null,
   ],
-  [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-from-x86_64",
-    archive: false, hwtest_device: null
+  [ target: "nvidia-jetson-orin-nx-debug-from-x86_64",
+    system: "x86_64-linux",
+    archive: false,
+    scs: false,
+    hwtest_device: null,
   ],
 ]
 
@@ -177,7 +205,7 @@ pipeline {
         }
       }
     }
-  }  
+  }
 
   post {
     always {

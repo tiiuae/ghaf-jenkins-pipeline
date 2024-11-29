@@ -3,9 +3,9 @@
 // SPDX-FileCopyrightText: 2022-2024 TII (SSRC) and the Ghaf contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import groovy.json.JsonOutput
-
 ////////////////////////////////////////////////////////////////////////////////
+
+import groovy.json.JsonOutput
 
 def REPO_URL = 'https://github.com/tiiuae/ghaf/'
 def WORKDIR  = 'ghaf'
@@ -17,71 +17,123 @@ properties([
   githubProjectProperty(displayName: '', projectUrlStr: REPO_URL),
 ])
 
+def target_jobs = [:]
+
 ////////////////////////////////////////////////////////////////////////////////
 
-def target_jobs = [:]
 def targets = [
   // docs
-  [ system: "x86_64-linux", target: "doc",
-    archive: false
+  [ target: "doc",
+    system: "x86_64-linux",
+    archive: false,
+    scs: false,
+    hwtest_device: null,
   ],
-  [ system: "aarch64-linux", target: "doc",
-    archive: false
+  [ target: "doc",
+    system: "aarch64-linux",
+    archive: false,
+    scs: false,
+    hwtest_device: null,
   ],
 
   // lenovo x1
-  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug",
-    archive: true, scs: true, hwtest_device: "lenovo-x1"
+  [ target: "lenovo-x1-carbon-gen11-debug",
+    system: "x86_64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: "lenovo-x1",
   ],
-  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug-installer",
-    archive: true, scs: true
+  [ target: "lenovo-x1-carbon-gen11-debug-installer",
+    system: "x86_64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: null,
   ],
-  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-release",
-    archive: true, scs: true
+  [ target: "lenovo-x1-carbon-gen11-release",
+    system: "x86_64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: null,
   ],
-  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-release-installer",
-    archive: true, scs: true
+  [ target: "lenovo-x1-carbon-gen11-release-installer",
+    system: "x86_64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: null,
   ],
 
   // nvidia orin
-  [ system: "aarch64-linux", target: "nvidia-jetson-orin-agx-debug",
-    archive: true, scs: true, hwtest_device: "orin-agx"
+  [ target: "nvidia-jetson-orin-agx-debug",
+    system: "aarch64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: "orin-agx",
   ],
-  [ system: "aarch64-linux", target: "nvidia-jetson-orin-nx-debug",
-    archive: true, scs: true, hwtest_device: "orin-nx"
+  [ target: "nvidia-jetson-orin-nx-debug",
+    system: "aarch64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: "orin-nx",
   ],
-  [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-from-x86_64",
-    archive: true, scs: true, hwtest_device: "orin-agx"
+  [ target: "nvidia-jetson-orin-agx-debug-from-x86_64",
+    system: "x86_64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: "orin-agx",
   ],
-  [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-from-x86_64",
-    archive: true, scs: true, hwtest_device: "orin-nx"
+  [ target: "nvidia-jetson-orin-nx-debug-from-x86_64",
+    system: "x86_64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: "orin-nx",
   ],
 
   // others
-  [ system: "x86_64-linux", target: "generic-x86_64-debug",
-    archive: true, hwtest_device: "nuc"
+  [ target: "generic-x86_64-debug",
+    system: "x86_64-linux",
+    archive: true,
+    scs: false,
+    hwtest_device: "nuc",
   ],
-  [ system: "x86_64-linux", target: "microchip-icicle-kit-debug-from-x86_64",
-    archive: true, scs: true, hwtest_device: "riscv"
+  [ target: "microchip-icicle-kit-debug-from-x86_64",
+    system: "x86_64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: "riscv",
   ],
-  [ system: "aarch64-linux", target: "nxp-imx8mp-evk-debug",
-    archive: true, scs: true
+  [ target: "nxp-imx8mp-evk-debug",
+    system: "aarch64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: null,
   ],
 ]
 
 def hydrajobs_targets = [
   // nvidia orin with bpmp enabled
-  [ system: "aarch64-linux",target: "nvidia-jetson-orin-agx-debug-bpmp",
-    archive: true
+  [ target: "nvidia-jetson-orin-agx-debug-bpmp",
+    system: "aarch64-linux",
+    archive: true,
+    scs: false,
+    hwtest_device: null,
   ],
-  [ system: "aarch64-linux",target: "nvidia-jetson-orin-nx-debug-bpmp",
-    archive: true
+  [ target: "nvidia-jetson-orin-nx-debug-bpmp",
+    system: "aarch64-linux",
+    archive: true,
+    scs: false,
+    hwtest_device: null,
   ],
-  [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-bpmp-from-x86_64",
-    archive: true
+  [ target: "nvidia-jetson-orin-agx-debug-bpmp-from-x86_64",
+    system: "x86_64-linux",
+    archive: true,
+    scs: false,
+    hwtest_device: null,
   ],
-  [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-bpmp-from-x86_64",
-    archive: true
+  [ target: "nvidia-jetson-orin-nx-debug-bpmp-from-x86_64",
+    system: "x86_64-linux",
+    archive: true,
+    scs: false,
+    hwtest_device: null,
   ],
 ]
 
