@@ -19,44 +19,73 @@ properties([
   ])
 ])
 
+target_jobs = [:]
+
+////////////////////////////////////////////////////////////////////////////////
+
 def targets = [
   // docs
-  [ system: "x86_64-linux", target: "doc",
-    archive: false
+  [ system: "x86_64-linux",
+    target: "doc",
+    archive: false,
+    scs: false,
+    hwtest_device: null,
   ],
 
   // lenovo x1
-  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug",
-    archive: true, scs: true, hwtest_device: "lenovo-x1"
+  [ system: "x86_64-linux",
+    target: "lenovo-x1-carbon-gen11-debug",
+    archive: true,
+    scs: true,
+    hwtest_device: "lenovo-x1",
   ],
-  [ system: "x86_64-linux", target: "lenovo-x1-carbon-gen11-debug-installer",
-    archive: true, scs: true
+  [ system: "x86_64-linux",
+    target: "lenovo-x1-carbon-gen11-debug-installer",
+    archive: true,
+    scs: true,
+    hwtest_device: null,
   ],
 
   // nvidia orin
-  [ system: "aarch64-linux", target: "nvidia-jetson-orin-agx-debug",
-    archive: true, scs: true, hwtest_device: "orin-agx"
+  [ system: "aarch64-linux",
+    target: "nvidia-jetson-orin-agx-debug",
+    archive: true,
+    scs: true,
+    hwtest_device: "orin-agx",
   ],
-  [ system: "aarch64-linux", target: "nvidia-jetson-orin-nx-debug",
-    archive: true, scs: true, hwtest_device: "orin-nx"
+  [ system: "aarch64-linux",
+    target: "nvidia-jetson-orin-nx-debug",
+    archive: true,
+    scs: true,
+    hwtest_device: "orin-nx",
   ],
-  [ system: "x86_64-linux", target: "nvidia-jetson-orin-agx-debug-from-x86_64",
-    archive: true, scs: true, hwtest_device: "orin-agx"
+  [ system: "x86_64-linux",
+    target: "nvidia-jetson-orin-agx-debug-from-x86_64",
+    archive: true,
+    scs: true,
+    hwtest_device: "orin-agx",
   ],
-  [ system: "x86_64-linux", target: "nvidia-jetson-orin-nx-debug-from-x86_64",
-    archive: true, scs: true, hwtest_device: "orin-nx"
+  [ system: "x86_64-linux",
+    target: "nvidia-jetson-orin-nx-debug-from-x86_64",
+    archive: true,
+    scs: true,
+    hwtest_device: "orin-nx",
   ],
 
   // others
-  [ system: "x86_64-linux", target: "generic-x86_64-debug",
-    archive: true, scs: true, hwtest_device: "nuc"
+  [ system: "x86_64-linux",
+    target: "generic-x86_64-debug",
+    archive: true,
+    scs: true,
+    hwtest_device: "nuc",
   ],
-  [ system: "x86_64-linux", target: "microchip-icicle-kit-debug-from-x86_64",
-    archive: true, scs: true, hwtest_device: "riscv"
+  [ system: "x86_64-linux",
+    target: "microchip-icicle-kit-debug-from-x86_64",
+    archive: true,
+    scs: true,
+    hwtest_device: "riscv",
   ],
 ]
-
-target_jobs = [:]
 
 ////////////////////////////////////////////////////////////////////////////////
 
