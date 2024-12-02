@@ -114,7 +114,7 @@ pipeline {
         dir(WORKDIR) {
           script {
             utils.nix_eval_jobs(targets)
-            target_jobs = utils.create_parallel_stages(targets)
+            target_jobs = utils.create_parallel_stages(targets,false,failedTargets)
           }
         }
       }
@@ -139,15 +139,15 @@ pipeline {
         if (failedTargets) {
           formattedFailedMessage = failedTargets.collect { "- ${it.trim()}" }.join("\n")
         } else {
-          formattedFailedMessage = "None, builds were ok, maybe HW tests failed?"
+          formattedFailedMessage = "No failed build targets"
         }
         if (servername=="ghaf-jenkins-controller-prod") {
           serverchannel="ghaf-build" // prod main build failures channel
           echo "Slack channel:$serverchannel"
           line1="*FAILURE:* ${env.BUILD_URL}".stripIndent()
-          line2="\n*Failed Targets:*".stripIndent()
-          line3="\n${formattedFailedMessage}".stripIndent()
-          line4="\n*Commit*: <${githublink}|${env.TARGET_COMMIT}>".stripIndent()
+          line2="\nCommit: <${githublink}|${env.TARGET_COMMIT}>".stripIndent()
+          line3="\n*Failed build targets:*".stripIndent()
+          line4="\n${formattedFailedMessage}".stripIndent()
           message = """
           ${line1}
           ${line2}

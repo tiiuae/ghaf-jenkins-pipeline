@@ -301,7 +301,9 @@ def nix_eval_hydrajobs(List<Map> targets) {
   }
 }
 
-def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false) {
+
+// , List failedTargets = []
+def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false, List failedTargets = null) {
   def target_jobs = [:]
   targets.each {
     def timestampBegin = ""
@@ -309,7 +311,7 @@ def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false) {
     def displayName = "${it.target} (${it.system})"
     def targetAttr = "${it.system}.${it.target}"
     def scsdir = "scs/${targetAttr}/scs"
-
+    def target = "${it.target}"
     target_jobs[displayName] = {
       stage("Build ${displayName}") {
         def opts = ""
@@ -321,8 +323,7 @@ def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false) {
         try {
           if (it.error) {
             error("Error in evaluation! ${it.error}")
-          }
-
+          }  
           timestampBegin = sh(script: "date +%s", returnStdout: true).trim()
           sh "nix build -L ${it.drvPath}\\^* ${opts}"
           timestampEnd = sh(script: "date +%s", returnStdout: true).trim()
@@ -338,6 +339,9 @@ def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false) {
         } catch (Exception e) {
           unstable("FAILED: ${displayName}")
           currentBuild.result = "FAILURE"
+          if (failedTargets != null) {
+            failedTargets.add(target)
+          }
           println "Error: ${e.toString()}"
         }
       }
