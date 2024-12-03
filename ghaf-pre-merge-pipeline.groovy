@@ -46,6 +46,11 @@ properties([
   ])
 ])
 
+def run_type_description = '''
+normal - executing all configured build and test stages normally<br>
+setup  - only reloading configuration, not running futher stages
+'''
+
 def target_jobs = [:]
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -111,13 +116,42 @@ def targets = [
 
 pipeline {
   agent { label 'built-in' }
+  parameters {
+    choice name: 'RUN_TYPE',
+      choices: ['normal', 'setup' ],
+      description: run_type_description
+  }
   options {
     disableConcurrentBuilds()
     timestamps ()
     buildDiscarder(logRotator(numToKeepStr: '100'))
   }
   stages {
+    stage('Setup') {
+      when {
+        anyOf {
+          triggeredBy 'JobDslCause';
+          environment name: 'RUN_TYPE', value: 'setup'
+        }
+      }
+      steps {
+        script {
+          String note = 'Project configuration parsed.'
+          echo note
+          currentBuild.description = note
+          currentBuild.result = 'NOT_BUILT'
+        }
+      }
+    }
     stage('Checkenv') {
+      when {
+        not {
+          anyOf {
+            triggeredBy 'JobDslCause';
+            environment name: 'RUN_TYPE', value: 'setup'
+          }
+        }
+      }
       steps {
         sh 'set | grep -P "(GITHUB_PR_)"'
         // Fail if this build was not triggered by a PR
@@ -132,6 +166,14 @@ pipeline {
       }
     }
     stage('Checkout') {
+      when {
+        not {
+          anyOf {
+            triggeredBy 'JobDslCause';
+            environment name: 'RUN_TYPE', value: 'setup'
+          }
+        }
+      }
       steps {
         script { utils = load "utils.groovy" }
         dir(WORKDIR) {
@@ -175,6 +217,14 @@ pipeline {
       }
     }
     stage('Set PR status pending') {
+      when {
+        not {
+          anyOf {
+            triggeredBy 'JobDslCause';
+            environment name: 'RUN_TYPE', value: 'setup'
+          }
+        }
+      }
       steps {
         script {
           // https://www.jenkins.io/doc/pipeline/steps/github-pullrequest/
@@ -188,6 +238,14 @@ pipeline {
     }
 
     stage('Evaluate') {
+      when {
+        not {
+          anyOf {
+            triggeredBy 'JobDslCause';
+            environment name: 'RUN_TYPE', value: 'setup'
+          }
+        }
+      }
       steps {
         dir(WORKDIR) {
           script {
@@ -199,6 +257,14 @@ pipeline {
     }
 
     stage('Build targets') {
+      when {
+        not {
+          anyOf {
+            triggeredBy 'JobDslCause';
+            environment name: 'RUN_TYPE', value: 'setup'
+          }
+        }
+      }
       steps {
         script {
           parallel target_jobs
