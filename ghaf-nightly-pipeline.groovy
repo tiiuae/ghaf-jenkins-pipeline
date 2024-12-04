@@ -208,7 +208,7 @@ pipeline {
               stage("Test ${it.target} (${it.system})") {
                 script {
                   def targetAttr = "${it.system}.${it.target}"
-                  utils.ghaf_hw_test(targetAttr, it.hwtest_device, '_boot_gui_bat_perf_')
+                  utils.ghaf_hw_test(targetAttr, it.hwtest_device, '_boot_gui_bat_perf_video_logging_')
                 }
               }
             }
