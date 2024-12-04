@@ -380,7 +380,7 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
                 mkdir -p ${scsdir}
                 provenance ${it.drvPath} --recursive --out ${outpath}
               """
-              sign_file(outpath, "sig/${outpath}.sig", "INT-Ghaf-Devenv-Provenance")
+              sign_file(outpath, "${outpath}.sig", "INT-Ghaf-Devenv-Provenance")
             }
           }
         }
