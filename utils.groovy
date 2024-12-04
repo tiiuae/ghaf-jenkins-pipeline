@@ -293,7 +293,8 @@ def nix_eval_hydrajobs(List<Map> targets) {
   """
 
   targets.each {
-    target = "${it.system}.${it.target}"
+    // note that this is in flipped order compared to #packages
+    target = "${it.target}.${it.system}"
     drvPath = sh(script: "jq -r '.\"${target}\".drvPath' < results.json", returnStdout: true).trim()
     evalError = sh(script: "jq -r '.\"${target}\".error' < results.json", returnStdout: true).trim()
     it.drvPath = drvPath
