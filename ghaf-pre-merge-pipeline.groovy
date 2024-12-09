@@ -293,11 +293,13 @@ pipeline {
     }
     unsuccessful {
       script {
-        setGitHubPullRequestStatus(
-          state: 'FAILURE',
-          context: "${JOB_BASE_NAME}",
-          message: "Build #${BUILD_NUMBER} failed in ${currentBuild.durationString}",
-        )
+        if(currentBuild.result != 'NOT_BUILT') {
+          setGitHubPullRequestStatus(
+            state: 'FAILURE',
+            context: "${JOB_BASE_NAME}",
+            message: "Build #${BUILD_NUMBER} failed in ${currentBuild.durationString}",
+          )
+        }
       }
     }
   }
