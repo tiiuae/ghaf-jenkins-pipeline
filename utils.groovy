@@ -233,7 +233,7 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
     // Add a link to failed test job(s) on the calling pipeline
     def test_href = "<a href=\"${job.absoluteUrl}\">⛔ ${flakeref_trimmed}</a>"
     currentBuild.description = "${currentBuild.description}<br>${test_href}"
-    return
+    return flakeref
   }
   // Copy test results from agent to controller to 'test-results' directory
   copyArtifacts(
@@ -243,6 +243,7 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
   )
   // Archive the test results
   archive_artifacts("ghaf-hw-test", flakeref_trimmed)
+  return null
 }
 
 def nix_eval_jobs(List<Map> targets) {
@@ -310,7 +311,6 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
     def displayName = "${it.target} (${it.system})"
     def targetAttr = "${it.system}.${it.target}"
     def scsdir = "scs/${targetAttr}/scs"
-    def target = "${it.target}"
     target_jobs[displayName] = {
       stage("Build ${displayName}") {
         def opts = ""
@@ -322,7 +322,7 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
         try {
           if (it.error) {
             error("Error in evaluation! ${it.error}")
-          }  
+          }
           timestampBegin = sh(script: "date +%s", returnStdout: true).trim()
           sh "nix build -L ${it.drvPath}\\^* ${opts}"
           timestampEnd = sh(script: "date +%s", returnStdout: true).trim()
@@ -339,7 +339,7 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
           unstable("FAILED: ${displayName}")
           currentBuild.result = "FAILURE"
           if (failedTargets != null) {
-            failedTargets.add(target)
+            failedTargets.add(targetAttr)
           }
           println "Error: ${e.toString()}"
         }
@@ -421,7 +421,15 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
       if (testset != null && it.hwtest_device != null) {
         stage("Test ${displayName}") {
           script {
-            ghaf_hw_test(targetAttr, it.hwtest_device, testset)
+            flakeref=ghaf_hw_test(targetAttr, it.hwtest_device, '_boot_bat_perf_')
+            println ("Test creation and execution done")
+            if (flakeref==null) {
+              println("Test was OK")
+            }
+            else {
+              failedHWTests.add(flakeref)
+              println ("ERROR FOUND, target: ${flakeref}")
+            }
           }
         }
       }
