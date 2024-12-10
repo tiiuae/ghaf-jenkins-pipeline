@@ -186,7 +186,7 @@ pipeline {
             utils.nix_eval_hydrajobs(hydrajobs_targets)
             targets = targets + hydrajobs_targets
 
-            target_jobs = utils.create_parallel_stages(targets, skip_hw_test=true)
+            target_jobs = utils.create_parallel_stages(targets, testset=null)
           }
         }
       }
@@ -208,7 +208,7 @@ pipeline {
               stage("Test ${it.target} (${it.system})") {
                 script {
                   def targetAttr = "${it.system}.${it.target}"
-                  utils.ghaf_hw_test(targetAttr, it.hwtest_device, '_boot_bat_perf_')
+                  utils.ghaf_hw_test(targetAttr, it.hwtest_device, '_boot_gui_bat_perf_video_logging_')
                 }
               }
             }
