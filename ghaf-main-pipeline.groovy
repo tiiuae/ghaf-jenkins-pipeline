@@ -114,7 +114,7 @@ pipeline {
         dir(WORKDIR) {
           script {
             utils.nix_eval_jobs(targets)
-            target_jobs = utils.create_parallel_stages(targets,false,failedTargets)
+            target_jobs = utils.create_parallel_stages(targets, testset='_boot_bat_', failedTargets=failedTargets)
           }
         }
       }

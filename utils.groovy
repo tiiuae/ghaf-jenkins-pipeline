@@ -293,7 +293,8 @@ def nix_eval_hydrajobs(List<Map> targets) {
   """
 
   targets.each {
-    target = "${it.system}.${it.target}"
+    // note that this is in flipped order compared to #packages
+    target = "${it.target}.${it.system}"
     drvPath = sh(script: "jq -r '.\"${target}\".drvPath' < results.json", returnStdout: true).trim()
     evalError = sh(script: "jq -r '.\"${target}\".error' < results.json", returnStdout: true).trim()
     it.drvPath = drvPath
@@ -301,9 +302,7 @@ def nix_eval_hydrajobs(List<Map> targets) {
   }
 }
 
-
-// , List failedTargets = []
-def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false, List failedTargets = null) {
+def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', List failedTargets = null) {
   def target_jobs = [:]
   targets.each {
     def timestampBegin = ""
@@ -323,7 +322,7 @@ def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false, List f
         try {
           if (it.error) {
             error("Error in evaluation! ${it.error}")
-          }  
+          }
           timestampBegin = sh(script: "date +%s", returnStdout: true).trim()
           sh "nix build -L ${it.drvPath}\\^* ${opts}"
           timestampEnd = sh(script: "date +%s", returnStdout: true).trim()
@@ -381,7 +380,7 @@ def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false, List f
                 mkdir -p ${scsdir}
                 provenance ${it.drvPath} --recursive --out ${outpath}
               """
-              sign_file(outpath, "sig/${outpath}.sig", "INT-Ghaf-Devenv-Provenance")
+              sign_file(outpath, "${outpath}.sig", "INT-Ghaf-Devenv-Provenance")
             }
           }
         }
@@ -419,10 +418,10 @@ def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false, List f
         }
       }
 
-      if (!skip_hw_test && it.hwtest_device != null) {
+      if (testset != null && it.hwtest_device != null) {
         stage("Test ${displayName}") {
           script {
-            ghaf_hw_test(targetAttr, it.hwtest_device, '_boot_bat_perf_')
+            ghaf_hw_test(targetAttr, it.hwtest_device, testset)
           }
         }
       }
@@ -433,5 +432,3 @@ def create_parallel_stages(List<Map> targets, Boolean skip_hw_test=false, List f
 }
 
 return this
-
-////////////////////////////////////////////////////////////////////////////////
