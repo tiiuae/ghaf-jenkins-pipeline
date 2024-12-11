@@ -17,6 +17,11 @@ properties([
   githubProjectProperty(displayName: '', projectUrlStr: REPO_URL),
 ])
 
+def run_type_description = '''
+normal - executing all configured build and test stages normally<br>
+setup  - only reloading configuration, not running futher stages
+'''
+
 def target_jobs = [:]
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -151,6 +156,12 @@ pipeline {
      pollSCM('0 23 * * *')
   }
 
+  parameters {
+    choice name: 'RUN_TYPE',
+      choices: ['normal', 'setup' ],
+      description: run_type_description
+  }
+
   options {
     disableConcurrentBuilds()
     timestamps ()
@@ -159,7 +170,32 @@ pipeline {
 
   stages {
 
+    stage('Setup') {
+      when {
+        anyOf {
+          triggeredBy 'JobDslCause';
+          environment name: 'RUN_TYPE', value: 'setup'
+        }
+      }
+      steps {
+        script {
+          String note = 'Project configuration parsed.'
+          echo note
+          currentBuild.description = note
+          currentBuild.result = 'NOT_BUILT'
+        }
+      }
+    }
+
     stage('Checkout') {
+      when {
+        not {
+          anyOf {
+            triggeredBy 'JobDslCause';
+            environment name: 'RUN_TYPE', value: 'setup'
+          }
+        }
+      }
       steps {
         script { utils = load "utils.groovy" }
         dir(WORKDIR) {
@@ -178,6 +214,14 @@ pipeline {
     }
 
     stage('Evaluate') {
+      when {
+        not {
+          anyOf {
+            triggeredBy 'JobDslCause';
+            environment name: 'RUN_TYPE', value: 'setup'
+          }
+        }
+      }
       steps {
         dir(WORKDIR) {
           script {
@@ -193,6 +237,14 @@ pipeline {
     }
 
     stage('Build targets') {
+      when {
+        not {
+          anyOf {
+            triggeredBy 'JobDslCause';
+            environment name: 'RUN_TYPE', value: 'setup'
+          }
+        }
+      }
       steps {
         script {
           parallel target_jobs
@@ -201,6 +253,14 @@ pipeline {
     }
 
     stage('Hardware tests') {
+      when {
+        not {
+          anyOf {
+            triggeredBy 'JobDslCause';
+            environment name: 'RUN_TYPE', value: 'setup'
+          }
+        }
+      }
       steps {
         script {
           targets.each {
