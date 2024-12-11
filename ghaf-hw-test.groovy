@@ -38,58 +38,32 @@ def ghaf_robot_test(String testname='boot') {
   } else {
     env.INCLUDE_TEST_TAGS = "${testname}AND${env.DEVICE_TAG}"
   }
-  // TODO: do we really need credentials to access the target devices?
-  // Target devices are connected to the testagent, which itself is
-  // only available over a private network. What is the risk
-  // we are protecting against by having additional authentication
-  // for the test devices?
-  // The current configuration requires additional manual configuration
-  // on the jenkins UI to add the following secrets:
-  withCredentials([
-    string(credentialsId: 'testagent-dut-pass', variable: 'DUT_PASS'),
-    string(credentialsId: 'testagent-plug-pass', variable: 'PLUG_PASS'),
-    string(credentialsId: 'testagent-switch-token', variable: 'SW_TOKEN'),
-    string(credentialsId: 'testagent-switch-secret', variable: 'SW_SECRET'),
-    string(credentialsId: 'testagent-wifi-ssid', variable: 'WIFI_SSID'),
-    string(credentialsId: 'testagent-wifi-password', variable: 'WIFI_PSWD'),
-    ]) {
-    dir("Robot-Framework/test-suites") {
-      sh 'rm -f *.png output.xml report.html log.html'
-      // On failure, continue the pipeline execution
-      try {
-        // Pass the secrets to the shell as environment variables, as we
-        // don't want Groovy to interpolate them. Similary, we pass
-        // other variables as environment variables to shell.
-        // Ref: https://www.jenkins.io/doc/book/pipeline/jenkinsfile/#string-interpolation
-        sh '''
-          nix run .#ghaf-robot -- \
-            -v DEVICE:$DEVICE_NAME \
-            -v DEVICE_TYPE:$DEVICE_TAG \
-            -v LOGIN:ghaf \
-            -v PASSWORD:$DUT_PASS \
-            -v PLUG_USERNAME:ghaftester@gmail.com \
-            -v PLUG_PASSWORD:$PLUG_PASS \
-            -v SWITCH_TOKEN:$SW_TOKEN \
-            -v SWITCH_SECRET:$SW_SECRET \
-            -v BUILD_ID:${BUILD_NUMBER} \
-            -v TEST_WIFI_SSID:${WIFI_SSID} \
-            -v TEST_WIFI_PSWD:${WIFI_PSWD} \
-            -i $INCLUDE_TEST_TAGS .
-        '''
-        if (testname == 'boot') {
-          // Set an environment variable to indicate boot test passed
-          env.BOOT_PASSED = 'true'
-        }
-      } catch (Exception e) {
-        currentBuild.result = "FAILURE"
-        unstable("FAILED '${testname}': ${e.toString()}")
-      } finally {
-        // Move the test output (if any) to a subdirectory
-        sh """
-          rm -fr $testname; mkdir -p $testname
-          mv -f *.png output.xml report.html log.html $testname/ || true
-        """
-      }
+  dir("Robot-Framework/test-suites") {
+  sh 'rm -f *.png output.xml report.html log.html'
+  // On failure, continue the pipeline execution
+  try {
+  // Pass variables as environment variables to shell.
+  // Ref: https://www.jenkins.io/doc/book/pipeline/jenkinsfile/#string-interpolation
+    sh '''
+      nix run .#ghaf-robot -- \
+        -v DEVICE:$DEVICE_NAME \
+        -v DEVICE_TYPE:$DEVICE_TAG \
+        -v BUILD_ID:${BUILD_NUMBER} \
+        -i $INCLUDE_TEST_TAGS .
+    '''
+    if (testname == 'boot') {
+      // Set an environment variable to indicate boot test passed
+      env.BOOT_PASSED = 'true'
+    }
+    } catch (Exception e) {
+    currentBuild.result = "FAILURE"
+    unstable("FAILED '${testname}': ${e.toString()}")
+    } finally {
+    // Move the test output (if any) to a subdirectory
+    sh """
+      rm -fr $testname; mkdir -p $testname
+      mv -f *.png output.xml report.html log.html $testname/ || true
+    """
     }
   }
 }
