@@ -17,7 +17,7 @@ properties([
 
 // Record failed target(s)
 def failedTargets = []
-
+def failedHWTests = []
 def target_jobs = [:]
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -136,10 +136,16 @@ pipeline {
         servername = sh(script: 'uname -n', returnStdout: true).trim()
         echo "Server name:$servername"
         def formattedFailedMessage = ""
+        def formattedHWFailedMessage = ""
+        def line5=""
+        def line6=""
         if (failedTargets) {
           formattedFailedMessage = failedTargets.collect { "- ${it.trim()}" }.join("\n")
         } else {
           formattedFailedMessage = "No failed build targets"
+          formattedHWFailedMessage = failedHWTests.collect  { "- ${it.trim()}" }.join("\n")
+          line5="\n*Failed HW test targets:*".stripIndent()
+          line6="\n${formattedHWFailedMessage}".stripIndent()
         }
         if (servername=="ghaf-jenkins-controller-prod") {
           serverchannel="ghaf-build" // prod main build failures channel
@@ -152,7 +158,9 @@ pipeline {
           ${line1}
           ${line2}
           ${line3}
-          ${line4}""".stripIndent()
+          ${line4}
+          ${line5}
+          ${line6}""".stripIndent()
           slackSend (
             channel: "$serverchannel",
             color: "danger",
