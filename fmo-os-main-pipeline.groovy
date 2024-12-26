@@ -26,6 +26,12 @@ def targets = [
   '.#packages.x86_64-linux.fmo-os-rugged-tablet-7230-public-release'
 ]
 
+// RUN_TYPE parameter description
+def run_type_description = '''
+normal - executing all configured build and test stages normally<br>
+setup  - only reloading configuration, not running futher stages
+'''
+
 ///////////////////////////////////////////////////////////////////////
 
 // define code blocks per target to execute as brances for parallel step
@@ -57,6 +63,9 @@ pipeline {
     string description: 'Branch (or revision reference) Specifier',
       name: 'BRANCH',
       defaultValue: DEFAULT_REF
+    choice name: 'RUN_TYPE',
+      choices: ['normal', 'setup' ],
+      description: run_type_description
   }
   triggers {
     pollSCM '* * * * *'
@@ -79,8 +88,32 @@ pipeline {
     FMO_REF = params.getOrDefault('BRANCH', DEFAULT_REF)
   }
   stages {
+    stage('Setup') {
+      when {
+        anyOf {
+          triggeredBy 'JobDslCause';
+          environment name: 'RUN_TYPE', value: 'setup'
+        }
+      }
+      steps {
+        script {
+          String note = 'Project configuration parsed.'
+          echo note
+          currentBuild.description = note
+          currentBuild.result = 'NOT_BUILT'
+        }
+      }
+    }
     stage('Checkout') {
       agent any
+      when {
+        not {
+          anyOf {
+            triggeredBy 'JobDslCause';
+            environment name: 'RUN_TYPE', value: 'setup'
+          }
+        }
+      }
       steps {
         script {
           utils = load "utils.groovy"
@@ -97,6 +130,14 @@ pipeline {
       }
     }
     stage('Test targets') {
+      when {
+        not {
+          anyOf {
+            triggeredBy 'JobDslCause';
+            environment name: 'RUN_TYPE', value: 'setup'
+          }
+        }
+      }
       steps {
         script {
           parallel tests
