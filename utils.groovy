@@ -225,16 +225,7 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
     wait: true,
   )
   println "ghaf-hw-test result (${device_config}:${testset}): ${job.result}"
-  // If the test job failed, mark the current step unstable and set
-  // the final build result failed, but continue the pipeline execution.
-  if (job.result != "SUCCESS") {
-    unstable("FAILED: ${device_config} ${testset}")
-    currentBuild.result = "FAILURE"
-    // Add a link to failed test job(s) on the calling pipeline
-    def test_href = "<a href=\"${job.absoluteUrl}\">⛔ ${flakeref_trimmed}</a>"
-    currentBuild.description = "${currentBuild.description}<br>${test_href}"
-    return flakeref
-  }
+
   // Copy test results from agent to controller to 'test-results' directory
   copyArtifacts(
       projectName: "ghaf-hw-test",
@@ -243,7 +234,17 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
   )
   // Archive the test results
   archive_artifacts("ghaf-hw-test", flakeref_trimmed)
-  return null
+
+  // If the test job failed, mark the current step unstable and set
+  // the final build result failed, but continue the pipeline execution.
+  if (job.result != "SUCCESS") {
+    unstable("FAILED: ${device_config} ${testset}")
+    currentBuild.result = "FAILURE"
+    // Add a link to failed test job(s) on the calling pipeline
+    def test_href = "<a href=\"${job.absoluteUrl}\">⛔ ${flakeref_trimmed}</a>"
+    currentBuild.description = "${currentBuild.description}<br>${test_href}"
+    return flakeref_trimmed
+  }
 }
 
 def nix_eval_jobs(List<Map> targets) {
