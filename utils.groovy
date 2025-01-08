@@ -245,6 +245,7 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
     currentBuild.description = "${currentBuild.description}<br>${test_href}"
     return flakeref_trimmed
   }
+  return null
 }
 
 def nix_eval_jobs(List<Map> targets) {
@@ -304,7 +305,7 @@ def nix_eval_hydrajobs(List<Map> targets) {
   }
 }
 
-def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', List failedTargets = null) {
+def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', List failedTargets=null, List failedHWTests=null) {
   def target_jobs = [:]
   targets.each {
     def timestampBegin = ""
@@ -422,14 +423,9 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
       if (testset != null && it.hwtest_device != null) {
         stage("Test ${displayName}") {
           script {
-            flakeref=ghaf_hw_test(targetAttr, it.hwtest_device, '_boot_bat_perf_')
-            println ("Test creation and execution done")
-            if (flakeref==null) {
-              println("Test was OK")
-            }
-            else {
+            flakeref = ghaf_hw_test(targetAttr, it.hwtest_device, testset)
+            if (flakeref != null) {
               failedHWTests.add(flakeref)
-              println ("ERROR FOUND, target: ${flakeref}")
             }
           }
         }
