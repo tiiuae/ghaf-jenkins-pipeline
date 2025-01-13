@@ -44,11 +44,13 @@ def ghaf_robot_test(String testname='boot') {
   try {
   // Pass variables as environment variables to shell.
   // Ref: https://www.jenkins.io/doc/book/pipeline/jenkinsfile/#string-interpolation
+    env.COMMIT_HASH = "${params.COMMIT_HASH}"
     sh '''
       nix run .#ghaf-robot -- \
         -v DEVICE:$DEVICE_NAME \
         -v DEVICE_TYPE:$DEVICE_TAG \
         -v BUILD_ID:${BUILD_NUMBER} \
+        -v COMMIT_HASH:$COMMIT_HASH \
         -i $INCLUDE_TEST_TAGS .
     '''
     if (testname == 'boot') {
