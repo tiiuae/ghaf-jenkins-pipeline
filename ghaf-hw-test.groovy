@@ -235,7 +235,7 @@ pipeline {
       }
     }
     stage('GUI test') {
-      when { expression { env.BOOT_PASSED == 'true' && env.TESTSET.contains('_gui_')} }
+      when { expression { env.BOOT_PASSED == 'true' && params.DEVICE_CONFIG_NAME == "lenovo-x1" && env.TESTSET.contains('_gui_')} }
       steps {
         script {
           ghaf_robot_test('gui')
