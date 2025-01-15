@@ -9,7 +9,7 @@ def REPO_URL = 'https://github.com/tiiuae/ghaf/'
 def WORKDIR  = 'ghaf'
 
 // Defines if there is need to run purge_artifacts
-def purge_stashed_artifacts = false
+def purge_stashed_artifacts = true
 
 // Utils module will be loaded in the first pipeline stage
 def utils = null
@@ -65,45 +65,45 @@ def targets = [
   ],
   [ target: "generic-x86_64-debug",
     system: "x86_64-linux",
-    archive: false,
+    archive: true,
     scs: false,
-    hwtest_device: null,
+    hwtest_device: "nuc",
   ],
   [ target: "lenovo-x1-carbon-gen11-debug",
     system: "x86_64-linux",
-    archive: false,
+    archive: true,
     scs: false,
-    hwtest_device: null,
+    hwtest_device: "lenovo-x1",
   ],
   [ target: "microchip-icicle-kit-debug-from-x86_64",
     system: "x86_64-linux",
-    archive: false,
+    archive: true,
     scs: false,
-    hwtest_device: null,
+    hwtest_device: "riscv",
   ],
   [ target: "nvidia-jetson-orin-agx-debug",
     system: "aarch64-linux",
-    archive: false,
+    archive: true,
     scs: false,
-    hwtest_device: null,
+    hwtest_device: "orin-agx",
   ],
   [ target: "nvidia-jetson-orin-agx-debug-from-x86_64",
     system: "x86_64-linux",
-    archive: false,
+    archive: true,
     scs: false,
-    hwtest_device: null,
+    hwtest_device: "orin-agx",
   ],
   [ target: "nvidia-jetson-orin-nx-debug",
     system: "aarch64-linux",
-    archive: false,
+    archive: true,
     scs: false,
-    hwtest_device: null,
+    hwtest_device: "orin-nx",
   ],
   [ target: "nvidia-jetson-orin-nx-debug-from-x86_64",
     system: "x86_64-linux",
-    archive: false,
+    archive: true,
     scs: false,
-    hwtest_device: null,
+    hwtest_device: "orin-nx",
   ],
 ]
 
@@ -192,7 +192,7 @@ pipeline {
         dir(WORKDIR) {
           script {
             utils.nix_eval_jobs(targets)
-            target_jobs = utils.create_parallel_stages(targets, testset=null)
+            target_jobs = utils.create_parallel_stages(targets, testset='_boot_')
           }
         }
       }
@@ -213,6 +213,8 @@ pipeline {
         if(purge_stashed_artifacts) {
           // Remove temporary, stashed build results before exiting the pipeline
           utils.purge_artifacts(env.ARTIFACTS_REMOTE_PATH)
+          // Remove build description because of broken artifacts link
+          currentBuild.description = ""
         }
       }
     }
