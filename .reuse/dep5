@@ -1,5 +1,0 @@
-Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-
-Copyright: 2022-2024 TII (SSRC) and the Ghaf contributors
-License: Apache-2.0
-Files: *.lock *.png *.svg *.csv *.drawio VERSION
