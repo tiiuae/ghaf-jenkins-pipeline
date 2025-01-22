@@ -12,12 +12,13 @@ def CONF_FILE_PATH = '/etc/jenkins/test_config.json'
 
 properties([
   parameters([
-    string(name: 'REPO_URL', defaultValue: 'https://github.com/tiiuae/ci-test-automation/', description: 'Select ci-test-automation repository. Allow testing also with a forked repository'),
-    string(name: 'IMG_URL', defaultValue: 'https://ghaf-jenkins-controller-dev.northeurope.cloudapp.azure.com/artifacts/ghaf-release-pipeline/build_8-commit_5c270677069b96cc43ae2578a72ece272d7e1a37/packages.aarch64-linux.nvidia-jetson-orin-nx-debug/sd-image/nixos-sd-image-24.11.20240802.c488d21-aarch64-linux.img.zst', description: 'Target image url'),
+    string(name: 'REPO_URL', defaultValue: 'https://github.com/tiiuae/ci-test-automation.git', description: 'Select ci-test-automation repository. Allow testing also with a forked repository'),
+    string(name: 'IMG_URL', defaultValue: 'https://ghaf-jenkins-controller-dev.northeurope.cloudapp.azure.com//artifacts/ghaf-main-pipeline/build_35-commit_a36a9236116d3516b952d68ccd7c0b4887c5e2b2/x86_64-linux.microchip-icicle-kit-debug-from-x86_64/nixos.img', description: 'Target image url. Need to be given! Other wise agent for execution is not set.'),
     string(name: 'BRANCH', defaultValue: 'main', description: 'ci-test-automation branch to checkout'),
     string(name: 'TEST_TAGS', defaultValue: '', description: 'Target test tags device need to match with given image URL!(combination of device and tag(s) or just a tag e.g.: bootANDorin-nx, SP-T65, SP-T45ORSP-T60 etc..)'),
     booleanParam(name: 'REFRESH', defaultValue: false, description: 'Read the Jenkins pipeline file and exit, setting the build status to failure.'),
-    booleanParam(name: 'FLASH', defaultValue: true, description: 'If this is set then image will be downloaded and drive flashed.')
+    booleanParam(name: 'FLASH_AND_BOOT', defaultValue: true, description: 'If this is set then image will be downloaded and drive flashed.'),
+    booleanParam(name: 'USE_RELAY', defaultValue: false, description: 'If this is set then relay board will be used to cut power from target device when FLASH_AND_BOOT is enabled')
   ])
 ])
 
@@ -84,13 +85,14 @@ def get_test_conf_property(String file_path, String device, String property) {
 }
 
 def ghaf_robot_test(String test_tags) {
+  env.INCLUDE_TEST_TAGS = null
   if (!env.DEVICE_TAG) {
     error("DEVICE_TAG not set")
   }
   if (!env.DEVICE_NAME) {
     error("DEVICE_NAME not set")
   }
-  if (test_tags == 'boot') {
+  if (test_tags == 'relayboot' || test_tags == 'boot') {
     env.INCLUDE_TEST_TAGS = "${test_tags}AND${env.DEVICE_TAG}"
     println "Run BOOT test with these tags: -i ${env.INCLUDE_TEST_TAGS}"
   } else {
@@ -114,7 +116,7 @@ def ghaf_robot_test(String test_tags) {
           -v BUILD_ID:${BUILD_NUMBER} \
           -i $INCLUDE_TEST_TAGS .
       '''
-      if (test_tags == 'boot') {
+      if (test_tags == 'relayboot' || test_tags == 'boot') {
         // Set an environment variable to indicate boot test passed
         env.BOOT_PASSED = 'true'
       }
@@ -172,7 +174,7 @@ pipeline {
       }
     }
     stage('Image download') {
-      when { expression { params.getOrDefault('FLASH', true) } }
+      when { expression { params.getOrDefault('FLASH_AND_BOOT', true) } }
       steps {
         script {
           // env.IMG_WGET stores the path to image as downloaded from the remote
@@ -195,7 +197,7 @@ pipeline {
       }
     }
     stage('Flash') {
-      when { expression { params.getOrDefault('FLASH', true) } }
+      when { expression { params.getOrDefault('FLASH_AND_BOOT', true) } }
       steps {
         // TODO: We should use ghaf flashing scripts or installers.
         // We don't want to maintain these flashing details here:
@@ -240,12 +242,16 @@ pipeline {
       }
     }
     stage('Boot test') {
-      when { expression { params.getOrDefault('FLASH', true) } }
+      when { expression { params.getOrDefault('FLASH_AND_BOOT', true) } }
       steps {
         script {
           env.BOOT_PASSED = 'false'
-          ghaf_robot_test('boot')
-          println "Boot test passed: ${env.BOOT_PASSED}"
+          if (params.USE_RELAY) {
+            ghaf_robot_test('relayboot')
+          } else {
+            ghaf_robot_test('boot')
+          }
+          println "Boot test status: ${env.BOOT_PASSED}"
         }
       }
     }
@@ -253,6 +259,7 @@ pipeline {
       when { expression { env.BOOT_PASSED == 'true' } }
       steps {
         script {
+          println "Test tags: ${params.TEST_TAGS}"
           ghaf_robot_test(params.TEST_TAGS)
         }
       }
