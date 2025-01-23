@@ -79,12 +79,6 @@ def targets = [
     scs: false,
     hwtest_device: "nuc",
   ],
-  [ system: "x86_64-linux",
-    target: "microchip-icicle-kit-debug-from-x86_64",
-    archive: true,
-    scs: false,
-    hwtest_device: "riscv",
-  ],
 ]
 
 ////////////////////////////////////////////////////////////////////////////////
