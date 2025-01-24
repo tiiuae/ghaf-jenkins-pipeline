@@ -140,7 +140,6 @@ pipeline {
   }
 
   options {
-    disableConcurrentBuilds()
     timestamps ()
     buildDiscarder(logRotator(numToKeepStr: '100'))
   }
@@ -168,13 +167,15 @@ pipeline {
     stage('Evaluate') {
       steps {
         dir(WORKDIR) {
-          script {
-            utils.nix_eval_jobs(targets)
-            // remove when hydrajobs is retired from ghaf
-            utils.nix_eval_hydrajobs(hydrajobs_targets)
-            targets = targets + hydrajobs_targets
+          lock('evaluator') {
+            script {
+              utils.nix_eval_jobs(targets)
+              // remove when hydrajobs is retired from ghaf
+              utils.nix_eval_hydrajobs(hydrajobs_targets)
+              targets = targets + hydrajobs_targets
 
-            target_jobs = utils.create_parallel_stages(targets, testset=null)
+              target_jobs = utils.create_parallel_stages(targets, testset=null)
+            }
           }
         }
       }

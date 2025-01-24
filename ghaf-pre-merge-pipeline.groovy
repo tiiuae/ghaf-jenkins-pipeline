@@ -100,7 +100,6 @@ def targets = [
 pipeline {
   agent { label 'built-in' }
   options {
-    disableConcurrentBuilds()
     timestamps ()
     buildDiscarder(logRotator(numToKeepStr: '100'))
   }
@@ -178,9 +177,11 @@ pipeline {
     stage('Evaluate') {
       steps {
         dir(WORKDIR) {
-          script {
-            utils.nix_eval_jobs(targets)
-            target_jobs = utils.create_parallel_stages(targets, testset='_boot_pre-merge_')
+          lock('evaluator') {
+            script {
+              utils.nix_eval_jobs(targets)
+              target_jobs = utils.create_parallel_stages(targets, testset='_boot_pre-merge_')
+            }
           }
         }
       }
