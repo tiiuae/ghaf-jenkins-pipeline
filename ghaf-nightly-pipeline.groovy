@@ -29,12 +29,6 @@ def targets = [
     scs: false,
     hwtest_device: null,
   ],
-  [ target: "doc",
-    system: "aarch64-linux",
-    archive: false,
-    scs: false,
-    hwtest_device: null,
-  ],
 
   // lenovo x1
   [ target: "lenovo-x1-carbon-gen11-debug",
