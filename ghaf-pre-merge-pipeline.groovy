@@ -52,12 +52,6 @@ def target_jobs = [:]
 
 def targets = [
   [ target: "doc",
-    system: "aarch64-linux",
-    archive: false,
-    scs: false,
-    hwtest_device: null,
-  ],
-  [ target: "doc",
     system: "x86_64-linux",
     archive: false,
     scs: false,
