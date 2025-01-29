@@ -228,6 +228,14 @@ pipeline {
         }
       }
     }
+    stage('Pre-merge test') {
+      when { expression { env.BOOT_PASSED == 'true' && env.TESTSET.contains('_pre-merge_')} }
+      steps {
+        script {
+          ghaf_robot_test('pre-merge')
+        }
+      }
+    }
     stage('Bat test') {
       when { expression { env.BOOT_PASSED == 'true' && env.TESTSET.contains('_bat_')} }
       steps {
