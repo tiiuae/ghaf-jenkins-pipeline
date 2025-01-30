@@ -106,6 +106,7 @@ def ghaf_robot_test(String test_tags) {
   dir("Robot-Framework/test-suites") {
     sh 'rm -f *.png output.xml report.html log.html'
     // On failure, continue the pipeline execution
+    env.COMMIT_HASH = (params.IMG_URL =~ /commit_([a-f0-9]{40})/)[0][1]
     try {
       // Pass variables as environment variables to shell.
       // Ref: https://www.jenkins.io/doc/book/pipeline/jenkinsfile/#string-interpolation
@@ -114,6 +115,7 @@ def ghaf_robot_test(String test_tags) {
           -v DEVICE:$DEVICE_NAME \
           -v DEVICE_TYPE:$DEVICE_TAG \
           -v BUILD_ID:${BUILD_NUMBER} \
+          -v COMMIT_HASH:$COMMIT_HASH \
           -i $INCLUDE_TEST_TAGS .
       '''
       if (test_tags == 'relayboot' || test_tags == 'boot') {
