@@ -100,7 +100,6 @@ def targets = [
 pipeline {
   agent { label 'built-in' }
   options {
-    timestamps ()
     buildDiscarder(logRotator(numToKeepStr: '100'))
   }
   stages {

@@ -75,7 +75,6 @@ pipeline {
      pollSCM('* * * * *')
   }
   options {
-    timestamps ()
     buildDiscarder(logRotator(numToKeepStr: '100'))
   }
   stages {
