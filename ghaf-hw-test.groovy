@@ -74,7 +74,6 @@ def ghaf_robot_test(String testname='boot') {
 
 pipeline {
   agent { label "${params.getOrDefault('LABEL', DEF_LABEL)}" }
-  options { timestamps () }
   stages {
     stage('Checkout') {
       steps {

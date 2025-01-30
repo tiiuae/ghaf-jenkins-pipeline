@@ -139,7 +139,6 @@ def ghaf_robot_test(String test_tags) {
 
 pipeline {
   agent { label parse_image_url_and_set_device() }
-  options { timestamps () }
   stages {
     stage('Refresh') {
       when { expression { params.getOrDefault('REFRESH', false) } }
