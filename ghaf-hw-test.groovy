@@ -33,7 +33,7 @@ def ghaf_robot_test(String testname='boot') {
   if (!env.DEVICE_NAME) {
     sh "echo 'DEVICE_NAME not set'; exit 1"
   }
-  if (testname == 'turnoff') {
+  if (testname == 'turnoff' || testname == 'relay-turnoff') {
     env.INCLUDE_TEST_TAGS = "${testname}"
   } else {
     env.INCLUDE_TEST_TAGS = "${testname}AND${env.DEVICE_TAG}"
@@ -54,6 +54,10 @@ def ghaf_robot_test(String testname='boot') {
         -i $INCLUDE_TEST_TAGS .
     '''
     if (testname == 'boot') {
+      // Set an environment variable to indicate boot test passed
+      env.BOOT_PASSED = 'true'
+    }
+    if (testname == 'relayboot') {
       // Set an environment variable to indicate boot test passed
       env.BOOT_PASSED = 'true'
     }
@@ -218,11 +222,21 @@ pipeline {
       }
     }
     stage('Boot test') {
-      when { expression { env.TESTSET.contains('_boot_')} }
+      when { expression { env.TESTSET.contains('_boot_') } }
       steps {
         script {
           env.BOOT_PASSED = 'false'
           ghaf_robot_test('boot')
+          println "Boot test passed: ${env.BOOT_PASSED}"
+        }
+      }
+    }
+    stage('Boot test with relay') {
+      when { expression { env.TESTSET.contains('_relayboot_') } }
+      steps {
+        script {
+          env.BOOT_PASSED = 'false'
+          ghaf_robot_test('relayboot')
           println "Boot test passed: ${env.BOOT_PASSED}"
         }
       }
@@ -260,9 +274,18 @@ pipeline {
       }
     }
     stage('Turn off') {
+      when { expression { env.BOOT_PASSED == 'true' && env.TESTSET.contains('_boot_')} }
       steps {
         script {
           ghaf_robot_test('turnoff')
+        }
+      }
+    }
+    stage('Turn off via relay') {
+      when { expression { env.BOOT_PASSED == 'true' && env.TESTSET.contains('_relayboot_')} }
+      steps {
+        script {
+          ghaf_robot_test('relay-turnoff')
         }
       }
     }
