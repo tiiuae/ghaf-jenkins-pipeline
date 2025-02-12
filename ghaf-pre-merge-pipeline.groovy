@@ -179,7 +179,7 @@ pipeline {
           lock('evaluator') {
             script {
               utils.nix_eval_jobs(targets)
-              target_jobs = utils.create_parallel_stages(targets, testset='_boot_pre-merge_')
+              target_jobs = utils.create_parallel_stages(targets, testset='_relayboot_pre-merge_')
             }
           }
         }
