@@ -72,7 +72,7 @@ def targets = [
 pipeline {
   agent { label 'built-in' }
   triggers {
-     pollSCM('* * * * *')
+    githubPush()
   }
   options {
     buildDiscarder(logRotator(numToKeepStr: '100'))
