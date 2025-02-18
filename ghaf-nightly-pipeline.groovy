@@ -135,8 +135,8 @@ pipeline {
      // archive the images, this pipeline would then generate many
      // tens of gigabytes of artifacts every night, even if there were no new
      // commits to main since the last nigthly run. Therefore, for now,
-     // we trigger based one-time daily poll at 23:00 instead:
-     pollSCM('0 23 * * *')
+     // we trigger based one-time daily poll at 20:00 UTC instead:
+     pollSCM('0 20 * * *')
   }
 
   options {

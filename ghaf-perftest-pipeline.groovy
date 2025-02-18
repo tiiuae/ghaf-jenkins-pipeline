@@ -72,7 +72,7 @@ def targets = [
 pipeline {
   agent { label 'built-in' }
   triggers {
-     pollSCM('0 3 * * *')
+     pollSCM('0 0 * * *')
   }
   options {
     disableConcurrentBuilds()
