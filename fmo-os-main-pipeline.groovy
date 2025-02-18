@@ -59,7 +59,7 @@ pipeline {
       defaultValue: DEFAULT_REF
   }
   triggers {
-    pollSCM '* * * * *'
+    githubPush()
   }
   options {
     disableConcurrentBuilds()
