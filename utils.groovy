@@ -390,12 +390,14 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
         }
 
         stage("SBOM ${displayName}") {
-          catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-            sh """
-              mkdir -p ${scsdir}
-              cd ${scsdir}
-              sbomnix ${it.drvPath}
-            """
+          lock('sbom') {
+            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+              sh """
+                mkdir -p ${scsdir}
+                cd ${scsdir}
+                sbomnix ${it.drvPath}
+              """
+            }
           }
         }
 
