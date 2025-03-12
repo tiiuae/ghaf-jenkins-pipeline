@@ -53,6 +53,9 @@ def parse_image_url_and_set_device() {
   } else if(params.IMG_URL.contains("microchip-icicle-")) {
     env.DEVICE_NAME = 'Polarfire1'
     env.DEVICE_TAG = 'riscv'
+  } else if(params.IMG_URL.contains("dell-latitude-7330-")) {
+    env.DEVICE_NAME = 'Dell7330'
+    env.DEVICE_TAG = 'dell-7330'
   } else {
     error("Unable to parse device config for image '${params.IMG_URL}'")
   }
