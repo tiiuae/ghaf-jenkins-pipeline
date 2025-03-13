@@ -18,7 +18,7 @@ properties([
     string(name: 'TEST_TAGS', defaultValue: '', description: 'Target test tags device need to match with given image URL!(combination of device and tag(s) or just a tag e.g.: bootANDorin-nx, SP-T65, SP-T45ORSP-T60 etc..)'),
     booleanParam(name: 'REFRESH', defaultValue: false, description: 'Read the Jenkins pipeline file and exit, setting the build status to failure.'),
     booleanParam(name: 'FLASH_AND_BOOT', defaultValue: true, description: 'If this is set then image will be downloaded and drive flashed.'),
-    booleanParam(name: 'USE_RELAY', defaultValue: false, description: 'If this is set then relay board will be used to cut power from target device when FLASH_AND_BOOT is enabled')
+    booleanParam(name: 'USE_RELAY', defaultValue: true, description: 'If this is set then relay board will be used to cut power from target device when FLASH_AND_BOOT is enabled')
   ])
 ])
 
