@@ -29,7 +29,7 @@ def parse_image_url_and_set_device() {
     error("Missing IMG_URL parameter")
   }
   // Parse out the TARGET from the IMG_URL
-  if((match = params.IMG_URL =~ /build_\d.+?\/([^\/]+)/)) {
+  if((match = params.IMG_URL =~ /commit_[0-9a-f]{5,40}\/([^\/]+)/)) {
     env.TARGET = "${match.group(1)}"
     match = null // https://stackoverflow.com/questions/40454558
     println("Using TARGET: ${env.TARGET}")
