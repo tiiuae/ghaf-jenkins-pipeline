@@ -56,6 +56,20 @@ def targets = [
     hwtest_device: null,
   ],
 
+  // Dell Latitude rugged laptops
+  [ target: "dell-latitude-7230-debug",
+    system: "x86_64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: null,
+  ],
+  [ target: "dell-latitude-7330-debug",
+    system: "x86_64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: null,
+  ],
+
   // nvidia orin
   [ target: "nvidia-jetson-orin-agx-debug",
     system: "aarch64-linux",
