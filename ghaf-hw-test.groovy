@@ -173,23 +173,16 @@ pipeline {
             env.DEVICE_NAME = 'LenovoX1-1'
           } else if(params.DEVICE_CONFIG_NAME == "nuc") {
             env.DEVICE_NAME = 'NUC1'
-          } else if(params.DEVICE_CONFIG_NAME == "riscv") {
-            env.DEVICE_NAME = 'Polarfire1'
+          } else if(params.DEVICE_CONFIG_NAME == "dell-7330") {
+            env.DEVICE_NAME = 'Dell7330'
           } else {
             println "Error: unsupported device config '${params.DEVICE_CONFIG_NAME}'"
             sh "exit 1"
           }
           // Determine mount commands
-          if(params.DEVICE_CONFIG_NAME == "riscv") {
-            muxport = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'usb_sd_mux_port')
-            dgrep = 'sdmux'
-            mount_cmd = "/run/wrappers/bin/sudo usbsdmux ${muxport} host; sleep 10"
-            unmount_cmd = "/run/wrappers/bin/sudo usbsdmux ${muxport} dut"
-          } else {
-            serial = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'usbhub_serial')
-            mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${serial}; sleep 10"
-            unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${serial}"
-          }
+          serial = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'usbhub_serial')
+          mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${serial}; sleep 10"
+          unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${serial}"
           env.DEVICE_TAG = params.DEVICE_CONFIG_NAME
           // Mount the target disk
           sh "${mount_cmd}"
@@ -199,7 +192,7 @@ pipeline {
           // Wipe possible ZFS leftovers, more details here:
           // https://github.com/tiiuae/ghaf/blob/454b18bc/packages/installer/ghaf-installer.sh#L75
           // TODO: use ghaf flashing scripts or installers?
-          if(params.DEVICE_CONFIG_NAME == "lenovo-x1") {
+          if(params.DEVICE_CONFIG_NAME == "lenovo-x1" || params.DEVICE_CONFIG_NAME == "dell-7330") {
             echo "Wiping filesystem..."
             SECTOR = 512
             MIB_TO_SECTORS = 20480
@@ -221,7 +214,7 @@ pipeline {
         }
       }
     }
-    stage('Boot test') {
+    stage('Boot test with TAPO plug') {
       when { expression { env.TESTSET.contains('_boot_') } }
       steps {
         script {
@@ -231,7 +224,7 @@ pipeline {
         }
       }
     }
-    stage('Boot test with relay') {
+    stage('Boot test') {
       when { expression { env.TESTSET.contains('_relayboot_') } }
       steps {
         script {

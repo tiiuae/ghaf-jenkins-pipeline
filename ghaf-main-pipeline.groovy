@@ -51,7 +51,7 @@ def targets = [
     system: "x86_64-linux",
     archive: true,
     scs: false,
-    hwtest_device: null,
+    hwtest_device: "dell-7330",
   ],
   [ target: "nvidia-jetson-orin-agx-debug",
     system: "aarch64-linux",
