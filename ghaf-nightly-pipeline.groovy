@@ -184,8 +184,9 @@ pipeline {
             script {
               utils.nix_eval_jobs(targets)
               // remove when hydrajobs is retired from ghaf
-              utils.nix_eval_hydrajobs(hydrajobs_targets)
-              targets = targets + hydrajobs_targets
+              // utils.nix_eval_hydrajobs(hydrajobs_targets)
+              // targets = targets + hydrajobs_targets
+              targets = targets
 
               target_jobs = utils.create_parallel_stages(targets, testset=null)
             }
