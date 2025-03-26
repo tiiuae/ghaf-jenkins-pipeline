@@ -119,7 +119,7 @@ pipeline {
             ]],
             branches: [[name: 'pr_origin/pull/${GITHUB_PR_NUMBER}/merge']],
             extensions: [
-              cleanBeforeCheckout(),
+              [$class: 'WipeWorkspace'],
             ],
           )
           script {

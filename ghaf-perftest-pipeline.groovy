@@ -90,7 +90,7 @@ pipeline {
         dir(WORKDIR) {
           checkout scmGit(
             branches: [[name: env.GITREF]],
-            extensions: [cleanBeforeCheckout()],
+            extensions: [[$class: 'WipeWorkspace']],
             userRemoteConfigs: [[url: REPO_URL]]
           )
           script {
