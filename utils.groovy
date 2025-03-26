@@ -340,12 +340,12 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
         } catch (InterruptedException e) {
           throw e
         } catch (Exception e) {
-          unstable("FAILED: ${displayName}")
-          currentBuild.result = "FAILURE"
           if (failedTargets != null) {
             failedTargets.add(targetAttr)
           }
           println "Error: ${e.toString()}"
+          // Stop running remaining steps if build failed
+          throw e
         }
       }
 
