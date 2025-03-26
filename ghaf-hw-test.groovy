@@ -83,7 +83,7 @@ pipeline {
       steps {
         checkout scmGit(
           branches: [[name: 'main']],
-          extensions: [cleanBeforeCheckout()],
+          extensions: [[$class: 'WipeWorkspace']],
           userRemoteConfigs: [[url: REPO_URL]]
         )
       }
