@@ -67,7 +67,7 @@ def targets = [
     system: "x86_64-linux",
     archive: true,
     scs: true,
-    hwtest_device: null,
+    hwtest_device: "dell-7330",
   ],
 
   // nvidia orin
@@ -111,33 +111,34 @@ def targets = [
   ],
 ]
 
-def hydrajobs_targets = [
-  // nvidia orin with bpmp enabled
-  [ target: "nvidia-jetson-orin-agx-debug-bpmp",
-    system: "aarch64-linux",
-    archive: true,
-    scs: false,
-    hwtest_device: null,
-  ],
-  [ target: "nvidia-jetson-orin-nx-debug-bpmp",
-    system: "aarch64-linux",
-    archive: true,
-    scs: false,
-    hwtest_device: null,
-  ],
-  [ target: "nvidia-jetson-orin-agx-debug-bpmp-from-x86_64",
-    system: "x86_64-linux",
-    archive: true,
-    scs: false,
-    hwtest_device: null,
-  ],
-  [ target: "nvidia-jetson-orin-nx-debug-bpmp-from-x86_64",
-    system: "x86_64-linux",
-    archive: true,
-    scs: false,
-    hwtest_device: null,
-  ],
-]
+// bpmp builds are disabled for now!
+// def hydrajobs_targets = [
+//   // nvidia orin with bpmp enabled
+//   [ target: "nvidia-jetson-orin-agx-debug-bpmp",
+//     system: "aarch64-linux",
+//     archive: true,
+//     scs: false,
+//     hwtest_device: null,
+//   ],
+//   [ target: "nvidia-jetson-orin-nx-debug-bpmp",
+//     system: "aarch64-linux",
+//     archive: true,
+//     scs: false,
+//     hwtest_device: null,
+//   ],
+//   [ target: "nvidia-jetson-orin-agx-debug-bpmp-from-x86_64",
+//     system: "x86_64-linux",
+//     archive: true,
+//     scs: false,
+//     hwtest_device: null,
+//   ],
+//   [ target: "nvidia-jetson-orin-nx-debug-bpmp-from-x86_64",
+//     system: "x86_64-linux",
+//     archive: true,
+//     scs: false,
+//     hwtest_device: null,
+//   ],
+// ]
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -184,10 +185,11 @@ pipeline {
             script {
               utils.nix_eval_jobs(targets)
               // remove when hydrajobs is retired from ghaf
-              utils.nix_eval_hydrajobs(hydrajobs_targets)
-              targets = targets + hydrajobs_targets
+              // bpmp builds are disabled for now!
+              // utils.nix_eval_hydrajobs(hydrajobs_targets)
+              //targets = targets + hydrajobs_targets
 
-              target_jobs = utils.create_parallel_stages(targets, testset=null)
+              target_jobs = utils.create_parallel_stages(targets, testset='_relayboot_gui_bat_')
             }
           }
         }
@@ -198,23 +200,6 @@ pipeline {
       steps {
         script {
           parallel target_jobs
-        }
-      }
-    }
-
-    stage('Hardware tests') {
-      steps {
-        script {
-          targets.each {
-            if (it.hwtest_device != null) {
-              stage("Test ${it.target} (${it.system})") {
-                script {
-                  def targetAttr = "${it.system}.${it.target}"
-                  utils.ghaf_hw_test(targetAttr, it.hwtest_device, '_relayboot_gui_bat_')
-                }
-              }
-            }
-          }
         }
       }
     }
