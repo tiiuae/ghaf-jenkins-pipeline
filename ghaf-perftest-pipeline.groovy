@@ -32,6 +32,14 @@ def targets = [
     hwtest_device: "lenovo-x1",
   ],
 
+  // Dell Latitude rugged laptops
+  [ target: "dell-latitude-7330-debug",
+    system: "x86_64-linux",
+    archive: true,
+    scs: false,
+    hwtest_device: "dell-7330",
+  ],
+
   // nvidia orin
   [ system: "aarch64-linux",
     target: "nvidia-jetson-orin-agx-debug",
