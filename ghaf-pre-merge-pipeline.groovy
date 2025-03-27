@@ -6,6 +6,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 def REPO_URL = 'https://github.com/tiiuae/ghaf/'
+
 def WORKDIR  = 'ghaf'
 
 // Defines if there is need to run purge_artifacts
@@ -211,10 +212,8 @@ pipeline {
     always {
       script {
         if(purge_stashed_artifacts) {
-          // Remove temporary, stashed build results before exiting the pipeline
-          utils.purge_artifacts(env.ARTIFACTS_REMOTE_PATH)
-          // Remove build description because of broken artifacts link
-          currentBuild.description = ""
+          // Remove temporary, stashed build results if those are older than 14days
+          utils.purge_artifacts_by_age('stash', '14d')
         }
       }
     }
