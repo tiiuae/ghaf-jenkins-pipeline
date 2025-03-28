@@ -39,7 +39,7 @@ def ghaf_robot_test(String testname='boot') {
     env.INCLUDE_TEST_TAGS = "${testname}AND${env.DEVICE_TAG}"
   }
   dir("Robot-Framework/test-suites") {
-  sh 'rm -f *.png output.xml report.html log.html'
+  sh 'rm -f *.txt *.png output.xml report.html log.html'
   // On failure, continue the pipeline execution
   try {
   // Pass variables as environment variables to shell.
@@ -68,7 +68,7 @@ def ghaf_robot_test(String testname='boot') {
     // Move the test output (if any) to a subdirectory
     sh """
       rm -fr $testname; mkdir -p $testname
-      mv -f *.png output.xml report.html log.html $testname/ || true
+      mv -f *.txt *.png output.xml report.html log.html $testname/ || true
     """
     }
   }
@@ -294,6 +294,7 @@ pipeline {
           outputPath: 'Robot-Framework/test-suites',
           outputFileName: '**/output.xml',
           otherFiles: '**/*.png',
+          otherFiles: '**/*.txt',
           disableArchiveOutput: false,
           reportFileName: '**/report.html',
           logFileName: '**/log.html',
