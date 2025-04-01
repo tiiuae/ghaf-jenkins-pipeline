@@ -286,17 +286,20 @@ pipeline {
       }
       script {
         if (env.BOOT_PASSED != null) {
-          // Publish all results under Robot-Framework/test-suites/$test_tags subfolders
+          // Archive Robot-Framework results as artifacts
+          archive = "Robot-Framework/test-suites/$test_tags/**/*.html, Robot-Framework/test-suites/$test_tags/**/*.xml, Robot-Framework/test-suites/$test_tags/**/*.png, Robot-Framework/test-suites/$test_tags/**/*.txt"
+          archiveArtifacts allowEmptyArchive: true, artifacts: archive
+          // Publish all results under Robot-Framework/test-suites/$test_tags/ subfolders
           step(
             [$class: 'RobotPublisher',
               archiveDirName: 'robot-plugin',
               outputPath: 'Robot-Framework/test-suites/$test_tags',
-              outputFileName: '**/output.xml',
-              otherFiles: '**/*.png',
-              otherFiles: '**/*.txt',
+              outputFileName: '**/**/output.xml',
+              otherFiles: '**/**/*.png',
+              otherFiles: '**/**/*.txt',
               disableArchiveOutput: false,
-              reportFileName: '**/report.html',
-              logFileName: '**/log.html',
+              reportFileName: '**/**/report.html',
+              logFileName: '**/**/log.html',
               passThreshold: 0,
               unstableThreshold: 0,
               onlyCritical: true,
