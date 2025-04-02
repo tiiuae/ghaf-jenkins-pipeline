@@ -9,6 +9,9 @@ def REPO_URL = 'https://github.com/tiiuae/ghaf/'
 def WORKDIR  = 'ghaf'
 def DEF_GITREF = 'main'
 
+// Defines if there is need to run purge_artifacts
+def purge_stashed_artifacts = true
+
 // Utils module will be loaded in the first pipeline stage
 def utils = null
 
@@ -146,6 +149,16 @@ pipeline {
               }
             }
           }
+        }
+      }
+    }
+  }
+  post {
+    always {
+      script {
+        if(purge_stashed_artifacts) {
+          // Remove build results if those are older than 90 days
+          utils.purge_artifacts_by_age('ghaf-release-pipeline', '90d')
         }
       }
     }

@@ -10,6 +10,9 @@ import groovy.json.JsonOutput
 def REPO_URL = 'https://github.com/tiiuae/ghaf/'
 def WORKDIR  = 'ghaf'
 
+// Defines if there is need to run purge_artifacts
+def purge_stashed_artifacts = true
+
 // Utils module will be loaded in the first pipeline stage
 def utils = null
 
@@ -200,6 +203,16 @@ pipeline {
       steps {
         script {
           parallel target_jobs
+        }
+      }
+    }
+  }
+  post {
+    always {
+      script {
+        if(purge_stashed_artifacts) {
+          // Remove build results if those are older than 60 days
+          utils.purge_artifacts_by_age('ghaf-nightly-pipeline', '60d')
         }
       }
     }
