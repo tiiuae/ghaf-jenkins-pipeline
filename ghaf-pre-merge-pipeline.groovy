@@ -6,7 +6,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 def REPO_URL = 'https://github.com/tiiuae/ghaf/'
-
 def WORKDIR  = 'ghaf'
 
 // Defines if there is need to run purge_artifacts
