@@ -6,8 +6,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 def REPO_URL = 'https://github.com/tiiuae/ghaf/'
+
 def WORKDIR  = 'ghaf'
+
 def DEF_GITHUB_PR_NUMBER = ''
+
+// Defines if there is need to run purge_artifacts
+def purge_stashed_artifacts = true
 
 // Utils module will be loaded in the first pipeline stage
 def utils = null
@@ -19,65 +24,83 @@ properties([
   ])
 ])
 
-target_jobs = [:]
+def target_jobs = [:]
+
+////////////////////////////////////////////////////////////////////////////////
+
+def setBuildStatus(String message, String state, String commit) {
+  withCredentials([string(credentialsId: 'ssrcdevops-classic', variable: 'TOKEN')]) {
+    env.TOKEN = "$TOKEN"
+    String status_url = "https://api.github.com/repos/tiiuae/ghaf/statuses/$commit"
+    sh """
+      # set -x
+      curl -H \"Authorization: token \$TOKEN\" \
+        -X POST \
+        -d '{\"description\": \"$message\", \
+             \"state\": \"$state\", \
+             \"context\": "ghaf-pre-merge-pipeline", \
+             \"target_url\" : \"$BUILD_URL\" }' \
+        ${status_url}
+    """
+  }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 def targets = [
-  // docs
-  [ system: "x86_64-linux",
-    target: "doc",
+  [ target: "doc",
+    system: "x86_64-linux",
     archive: false,
     scs: false,
     hwtest_device: null,
   ],
-
-  // lenovo x1
-  [ system: "x86_64-linux",
-    target: "lenovo-x1-carbon-gen11-debug",
+  [ target: "generic-x86_64-debug",
+    system: "x86_64-linux",
+    archive: true,
+    scs: false,
+    hwtest_device: "nuc",
+  ],
+  [ target: "lenovo-x1-carbon-gen11-debug",
+    system: "x86_64-linux",
     archive: true,
     scs: false,
     hwtest_device: "lenovo-x1",
   ],
-  [ system: "x86_64-linux",
-    target: "lenovo-x1-carbon-gen11-debug-installer",
+  [ target: "dell-latitude-7230-debug",
+    system: "x86_64-linux",
     archive: true,
     scs: false,
     hwtest_device: null,
   ],
-
-  // nvidia orin
-  [ system: "aarch64-linux",
-    target: "nvidia-jetson-orin-agx-debug",
+  [ target: "dell-latitude-7330-debug",
+    system: "x86_64-linux",
+    archive: true,
+    scs: false,
+    hwtest_device: null,
+  ],
+  [ target: "nvidia-jetson-orin-agx-debug",
+    system: "aarch64-linux",
     archive: true,
     scs: false,
     hwtest_device: "orin-agx",
   ],
-  [ system: "aarch64-linux",
-    target: "nvidia-jetson-orin-nx-debug",
-    archive: true,
-    scs: false,
-    hwtest_device: "orin-nx",
-  ],
-  [ system: "x86_64-linux",
-    target: "nvidia-jetson-orin-agx-debug-from-x86_64",
+  [ target: "nvidia-jetson-orin-agx-debug-from-x86_64",
+    system: "x86_64-linux",
     archive: true,
     scs: false,
     hwtest_device: "orin-agx",
   ],
-  [ system: "x86_64-linux",
-    target: "nvidia-jetson-orin-nx-debug-from-x86_64",
+  [ target: "nvidia-jetson-orin-nx-debug",
+    system: "aarch64-linux",
     archive: true,
     scs: false,
     hwtest_device: "orin-nx",
   ],
-
-  // others
-  [ system: "x86_64-linux",
-    target: "generic-x86_64-debug",
+  [ target: "nvidia-jetson-orin-nx-debug-from-x86_64",
+    system: "x86_64-linux",
     archive: true,
     scs: false,
-    hwtest_device: "nuc",
+    hwtest_device: "orin-nx",
   ],
 ]
 
@@ -86,7 +109,6 @@ def targets = [
 pipeline {
   agent { label 'built-in' }
   options {
-    disableConcurrentBuilds()
     buildDiscarder(logRotator(numToKeepStr: '100'))
   }
   environment {
@@ -97,6 +119,10 @@ pipeline {
     stage('Checkenv') {
       steps {
         sh 'if [ -z "$GITHUB_PR_NUMBER" ]; then exit 1; fi'
+        // Fail if environment is otherwise unexpected
+        sh 'if [ -z "$JOB_BASE_NAME" ]; then exit 1; fi'
+        sh 'if [ -z "$BUILD_NUMBER" ]; then exit 1; fi'
+        sh 'if [ -z "$BUILD_URL" ]; then exit 1; fi'
         script {
           def href = "${REPO_URL}/pull/${GITHUB_PR_NUMBER}"
           currentBuild.description = "<br>(<a href=\"${href}\">#${GITHUB_PR_NUMBER}</a>)"
@@ -123,28 +149,62 @@ pipeline {
             ],
           )
           script {
-            env.TARGET_REPO = sh(script: 'git remote get-url pr_origin', returnStdout: true).trim()
-            env.TARGET_COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
-            env.ARTIFACTS_REMOTE_PATH = "${env.JOB_NAME}/build_${env.BUILD_ID}-commit_${env.TARGET_COMMIT}"
+            sh 'git fetch pr_origin pull/${GITHUB_PR_NUMBER}/head:PR_head'
+            env.TARGET_COMMIT = sh(script: 'git rev-parse PR_head', returnStdout: true).trim()
+            println "TARGET_COMMIT: ${env.TARGET_COMMIT}"
+            env.ARTIFACTS_REMOTE_PATH = "stash/${env.BUILD_TAG}-commit_${env.TARGET_COMMIT}"
           }
         }
       }
     }
+
+    stage('Set PR status pending') {
+      steps {
+        script {
+          setBuildStatus(message="Manual trigger: pending", state="pending", commit=env.TARGET_COMMIT)
+        }
+      }
+    }
+
     stage('Evaluate') {
       steps {
         dir(WORKDIR) {
-          script {
-            utils.nix_eval_jobs(targets)
-            target_jobs = utils.create_parallel_stages(targets, testset='_boot_bat_')
+          lock('evaluator') {
+            script {
+              utils.nix_eval_jobs(targets)
+              target_jobs = utils.create_parallel_stages(targets, testset='_relayboot_pre-merge_')
+            }
           }
         }
       }
     }
+
     stage('Build targets') {
       steps {
         script {
           parallel target_jobs
         }
+      }
+    }
+  }
+
+  post {
+    always {
+      script {
+        if(purge_stashed_artifacts) {
+          // Remove temporary, stashed build results if those are older than 14days
+          utils.purge_artifacts_by_age('stash', '14d')
+        }
+      }
+    }
+    success {
+      script {
+        setBuildStatus(message="Manual trigger: success", state="success", commit=env.TARGET_COMMIT)
+      }
+    }
+    unsuccessful {
+      script {
+        setBuildStatus(message="Manual trigger: failure", state="failure", commit=env.TARGET_COMMIT)
       }
     }
   }
