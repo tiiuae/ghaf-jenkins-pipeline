@@ -109,7 +109,7 @@ pipeline {
           script {
             env.TARGET_REPO = sh(script: 'git remote get-url origin', returnStdout: true).trim()
             env.TARGET_COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
-            env.ARTIFACTS_REMOTE_PATH = "${env.JOB_NAME}/build_${env.BUILD_ID}-commit_${env.TARGET_COMMIT}"
+            env.ARTIFACTS_REMOTE_PATH = "${env.JOB_NAME}/commit_${env.TARGET_COMMIT}-${env.TAG_UNIXTIME}"
           }
         }
       }
