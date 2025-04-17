@@ -74,14 +74,6 @@ def targets = [
     scs: true,
     hwtest_device: "orin-nx",
   ],
-
-  // others
-  [ system: "x86_64-linux",
-    target: "generic-x86_64-debug",
-    archive: true,
-    scs: true,
-    hwtest_device: "nuc",
-  ],
 ]
 
 ////////////////////////////////////////////////////////////////////////////////
