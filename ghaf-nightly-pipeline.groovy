@@ -104,7 +104,7 @@ def targets = [
     system: "x86_64-linux",
     archive: true,
     scs: false,
-    hwtest_device: "nuc",
+    hwtest_device: null,
   ],
   [ target: "nxp-imx8mp-evk-debug",
     system: "aarch64-linux",
