@@ -67,7 +67,7 @@ def targets = [
     system: "x86_64-linux",
     archive: true,
     scs: false,
-    hwtest_device: null,
+    hwtest_device: "dell-7330",
   ],
   [ target: "dell-latitude-7330-debug",
     system: "x86_64-linux",
