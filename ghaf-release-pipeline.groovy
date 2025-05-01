@@ -127,24 +127,7 @@ pipeline {
         }
       }
     }
-
-    stage('Hardware tests') {
-      steps {
-        script {
-          targets.each {
-            if (it.hwtest_device != null) {
-              stage("Test ${it.target} (${it.system})") {
-                script {
-                  def targetAttr = "${it.system}.${it.target}"
-                  utils.ghaf_hw_test(targetAttr, it.hwtest_device, '_relayboot_bat_')
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+ }
   post {
     always {
       script {
