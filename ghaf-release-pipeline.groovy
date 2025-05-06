@@ -113,7 +113,7 @@ pipeline {
           lock('evaluator') {
             script {
               utils.nix_eval_jobs(targets)
-              target_jobs = utils.create_parallel_stages(targets, testset=null)
+              target_jobs = utils.create_parallel_stages(targets, testset='_relayboot_bat_')
             }
           }
         }
@@ -127,24 +127,7 @@ pipeline {
         }
       }
     }
-
-    stage('Hardware tests') {
-      steps {
-        script {
-          targets.each {
-            if (it.hwtest_device != null) {
-              stage("Test ${it.target} (${it.system})") {
-                script {
-                  def targetAttr = "${it.system}.${it.target}"
-                  utils.ghaf_hw_test(targetAttr, it.hwtest_device, '_relayboot_bat_')
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+ }
   post {
     always {
       script {
