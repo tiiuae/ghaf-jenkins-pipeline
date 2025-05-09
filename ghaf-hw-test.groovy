@@ -167,6 +167,8 @@ pipeline {
           // Determine the device name
           if(params.DEVICE_CONFIG_NAME == "orin-agx") {
             env.DEVICE_NAME = 'OrinAGX1'
+          } else if(params.DEVICE_CONFIG_NAME == "orin-agx-64") {
+            env.DEVICE_NAME = 'OrinAGX64'
           } else if(params.DEVICE_CONFIG_NAME == "orin-nx") {
             env.DEVICE_NAME = 'OrinNX1'
           } else if(params.DEVICE_CONFIG_NAME == "lenovo-x1") {

@@ -41,6 +41,9 @@ def parse_image_url_and_set_device() {
   if(params.IMG_URL.contains("orin-agx-")) {
     env.DEVICE_NAME = 'OrinAGX1'
     env.DEVICE_TAG = 'orin-agx'
+  } else if(params.IMG_URL.contains("orin-agx64-")) {
+    env.DEVICE_NAME = 'OrinAGX64'
+    env.DEVICE_TAG = 'orin-agx-64'
   } else if(params.IMG_URL.contains("orin-nx-")) {
     env.DEVICE_NAME = 'OrinNX1'
     env.DEVICE_TAG = 'orin-nx'
