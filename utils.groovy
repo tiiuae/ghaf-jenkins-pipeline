@@ -23,9 +23,9 @@ def flakeref_trim(String flakeref) {
 
 def run_rclone(String opts) {
   sh """
-    export RCLONE_WEBDAV_UNIX_SOCKET_PATH=/run/rclone-jenkins-artifacts.sock
-    export RCLONE_WEBDAV_URL=http://localhost
-    rclone ${opts}
+    rclone ${opts} \
+        "--webdav-unix-socket" "/run/rclone-jenkins-artifacts.sock" \
+        "--webdav-url" "http://localhost"
   """
 }
 
