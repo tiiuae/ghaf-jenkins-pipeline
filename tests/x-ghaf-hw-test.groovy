@@ -1,6 +1,6 @@
 #!/usr/bin/env groovy
 
-// SPDX-FileCopyrightText: 2022-2024 TII (SSRC) and the Ghaf contributors
+// SPDX-FileCopyrightText: 2022-2025 TII (SSRC) and the Ghaf contributors
 // SPDX-License-Identifier: Apache-2.0
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -13,11 +13,14 @@ def CONF_FILE_PATH = '/etc/jenkins/test_config.json'
 properties([
   parameters([
     string(name: 'REPO_URL', defaultValue: 'https://github.com/tiiuae/ci-test-automation.git', description: 'Select ci-test-automation repository. Allow testing also with a forked repository'),
-    string(name: 'IMG_URL', defaultValue: 'https://ghaf-jenkins-controller-dev.northeurope.cloudapp.azure.com//artifacts/ghaf-main-pipeline/build_35-commit_a36a9236116d3516b952d68ccd7c0b4887c5e2b2/x86_64-linux.microchip-icicle-kit-debug-from-x86_64/nixos.img', description: 'Target image url. Need to be given! Other wise agent for execution is not set.'),
+    string(name: 'IMG_URL', defaultValue: '', description: 'Target image url. Need to be given if FLASH_AND_BOOT is true'),
+    string(name: 'DEVICE_TAG', defaultValue: '', description: 'Need to be given if there is no IMG_URL, and FLASH_AND_BOOT is false, choose: lenovo-x1, dell-7330, orin-agx, orin-agx-64, orin-nx'),
     string(name: 'BRANCH', defaultValue: 'main', description: 'ci-test-automation branch to checkout'),
     string(name: 'TEST_TAGS', defaultValue: '', description: 'Target test tags device need to match with given image URL!(combination of device and tag(s) or just a tag e.g.: bootANDorin-nx, SP-T65, SP-T45ORSP-T60 etc..)'),
     booleanParam(name: 'REFRESH', defaultValue: false, description: 'Read the Jenkins pipeline file and exit, setting the build status to failure.'),
     booleanParam(name: 'FLASH_AND_BOOT', defaultValue: true, description: 'If this is set then image will be downloaded and drive flashed.'),
+    booleanParam(name: 'BOOT', defaultValue: false, description: 'If this is set then device will be turned on before tests.'),
+    booleanParam(name: 'TURN_OFF', defaultValue: false, description: 'If this is set then device will be turned off after tests or instead of tests if there are no test tags.'),
     booleanParam(name: 'USE_RELAY', defaultValue: true, description: 'If this is set then relay board will be used to cut power from target device when FLASH_AND_BOOT is enabled')
   ])
 ])
@@ -25,43 +28,59 @@ properties([
 ////////////////////////////////////////////////////////////////////////////////
 
 def parse_image_url_and_set_device() {
-  if(!params.containsKey('IMG_URL')) {
-    error("Missing IMG_URL parameter")
-  }
+  def deviceMap = [
+    "orin-agx-"           : [name: 'OrinAGX1',     tag: 'orin-agx'],
+    "orin-agx64-"         : [name: 'OrinAGX64',    tag: 'orin-agx-64'],
+    "orin-nx-"            : [name: 'OrinNX1',      tag: 'orin-nx'],
+    "lenovo-x1-"          : [name: 'LenovoX1-1',   tag: 'lenovo-x1'],
+    "dell-latitude-7330-" : [name: 'Dell7330',     tag: 'dell-7330']
+  ]
   // Parse out the TARGET from the IMG_URL
-  if((match = params.IMG_URL =~ /commit_[0-9a-f]{5,40}\/([^\/]+)/)) {
-    env.TARGET = "${match.group(1)}"
-    match = null // https://stackoverflow.com/questions/40454558
-    println("Using TARGET: ${env.TARGET}")
+  if (params.FLASH_AND_BOOT) {
+    if(!params.containsKey('IMG_URL')) {
+      error("Missing IMG_URL parameter")
+    }
+    def match
+    if ((match = params.IMG_URL =~ /commit_[0-9a-f]{5,40}\/([^\/]+)/)) {
+      env.TARGET = "${match.group(1)}"
+      match = null
+
+      def found = false
+      for (target in deviceMap.keySet()) {
+        if (params.IMG_URL.contains(target)) {
+          env.DEVICE_NAME = deviceMap[target].name
+          env.DEVICE_TAG  = deviceMap[target].tag
+          println("Using DEVICE_TAG: ${env.DEVICE_TAG}, DEVICE_NAME: ${env.DEVICE_NAME}")
+          found = true
+          break
+        }
+      }
+
+      if (!found) {
+        error("Could not determine device from IMG_URL: ${params.IMG_URL}")
+      }
+
+    } else {
+      error("Unexpected IMG_URL: ${params.IMG_URL}")
+    }
   } else {
-    error("Unexpected IMG_URL: ${params.IMG_URL}")
+    // check if DEVICE_TAG is allowed and assign DEVICE_NAME
+    def found = false
+    for (entry in deviceMap) {
+      if (params.DEVICE_TAG == entry.value.tag) {
+        env.DEVICE_TAG  = entry.value.tag
+        env.DEVICE_NAME = entry.value.name
+        println("Using DEVICE_TAG: ${env.DEVICE_TAG}, DEVICE_NAME: ${env.DEVICE_NAME}")
+        found = true
+        break
+      }
+    }
+
+    if (!found) {
+      error("FLASH_AND_BOOT is false and DEVICE_TAG '${params.DEVICE_TAG}' is not in the allowed list")
+    }
   }
 
-  // Determine the device name
-  if(params.IMG_URL.contains("orin-agx-")) {
-    env.DEVICE_NAME = 'OrinAGX1'
-    env.DEVICE_TAG = 'orin-agx'
-  } else if(params.IMG_URL.contains("orin-agx64-")) {
-    env.DEVICE_NAME = 'OrinAGX64'
-    env.DEVICE_TAG = 'orin-agx-64'
-  } else if(params.IMG_URL.contains("orin-nx-")) {
-    env.DEVICE_NAME = 'OrinNX1'
-    env.DEVICE_TAG = 'orin-nx'
-  } else if(params.IMG_URL.contains("lenovo-x1-")) {
-    env.DEVICE_NAME = 'LenovoX1-1'
-    env.DEVICE_TAG = 'lenovo-x1'
-  } else if(params.IMG_URL.contains("generic-x86_64-")) {
-    env.DEVICE_NAME = 'NUC1'
-    env.DEVICE_TAG = 'nuc'
-  } else if(params.IMG_URL.contains("microchip-icicle-")) {
-    env.DEVICE_NAME = 'Polarfire1'
-    env.DEVICE_TAG = 'riscv'
-  } else if(params.IMG_URL.contains("dell-latitude-7330-")) {
-    env.DEVICE_NAME = 'Dell7330'
-    env.DEVICE_TAG = 'dell-7330'
-  } else {
-    error("Unable to parse device config for image '${params.IMG_URL}'")
-  }
   println("Using DEVICE_NAME: ${env.DEVICE_NAME}")
   println("Using DEVICE_TAG: ${env.DEVICE_TAG}")
 
@@ -112,7 +131,13 @@ def ghaf_robot_test(String test_tags) {
   dir("Robot-Framework/test-suites") {
     sh 'rm -f *.txt *.png output.xml report.html log.html'
     // On failure, continue the pipeline execution
-    env.COMMIT_HASH = (params.IMG_URL =~ /commit_([a-f0-9]{40})/)[0][1]
+    if (params.IMG_URL && params.IMG_URL != '') {
+      env.COMMIT_HASH = (params.IMG_URL =~ /commit_([a-f0-9]{40})/)[0][1]
+      println "Commit hash: ${env.COMMIT_HASH}"
+    } else {
+      println "No IMG_URL provided, so there is no COMMIT_HASH"
+      env.COMMIT_HASH = "NONE"
+    }
     try {
       // Pass variables as environment variables to shell.
       // Ref: https://www.jenkins.io/doc/book/pipeline/jenkinsfile/#string-interpolation
@@ -168,7 +193,7 @@ pipeline {
         script {
           // Set boot test 'true' if boot test is excluded from wanted test set. Will be set to 'false' later if boot test is included and it fails.
           env.BOOT_PASSED = 'true'
-          currentBuild.description = "${env.TARGET}"
+          currentBuild.description = "target: ${env.TARGET}, device: ${env.DEVICE_TAG}"
           env.TEST_CONFIG_DIR = 'Robot-Framework/config'
           sh """
             mkdir -p ${TEST_CONFIG_DIR}
@@ -249,7 +274,7 @@ pipeline {
       }
     }
     stage('Boot test') {
-      when { expression { params.getOrDefault('FLASH_AND_BOOT', true) } }
+      when { expression { params.getOrDefault('FLASH_AND_BOOT', true) || (params.BOOT == true) } }
       steps {
         script {
           env.BOOT_PASSED = 'false'
@@ -263,11 +288,28 @@ pipeline {
       }
     }
     stage('HW test') {
-      when { expression { env.BOOT_PASSED == 'true' } }
+      when {
+        allOf {
+          expression { env.BOOT_PASSED == 'true' }
+          expression { params.TEST_TAGS }
+        }
+      }
       steps {
         script {
           println "Test tags: ${params.TEST_TAGS}"
           ghaf_robot_test(params.TEST_TAGS)
+        }
+      }
+    }
+    stage('Turn OFF') {
+      when { expression { params.getOrDefault('TURN_OFF', true) } }
+      steps {
+        script {
+          if (params.USE_RELAY) {
+            ghaf_robot_test('relay-turnoff')
+          } else {
+            ghaf_robot_test('turnoff')
+          }
         }
       }
     }
@@ -290,13 +332,30 @@ pipeline {
       script {
         if (env.BOOT_PASSED != null) {
           // Archive Robot-Framework results as artifacts
-          archive = "Robot-Framework/test-suites/$test_tags/**/*.html, Robot-Framework/test-suites/$test_tags/**/*.xml, Robot-Framework/test-suites/$test_tags/**/*.png, Robot-Framework/test-suites/$test_tags/**/*.txt"
+          def result_dir = null
+          if (params.TEST_TAGS) {
+            result_dir = params.TEST_TAGS
+          } else if (params.TURN_OFF) {
+            if (params.USE_RELAY) {
+              result_dir = 'relay-turnoff'
+            } else {
+              result_dir = 'turnoff'
+            }
+          } else if (params.BOOT) {
+            if (params.USE_RELAY) {
+              result_dir = 'relayboot'
+            } else {
+              result_dir = 'boot'
+            }
+          }
+
+          def archive = "Robot-Framework/test-suites/${result_dir}/**/*.html, Robot-Framework/test-suites/${result_dir}/**/*.xml, Robot-Framework/test-suites/${result_dir}/**/*.png, Robot-Framework/test-suites/${result_dir}/**/*.txt"
           archiveArtifacts allowEmptyArchive: true, artifacts: archive
-          // Publish all results under Robot-Framework/test-suites/$test_tags/ subfolders
+          // Publish all results under Robot-Framework/test-suites/$result_dir/ subfolders
           step(
             [$class: 'RobotPublisher',
               archiveDirName: 'robot-plugin',
-              outputPath: 'Robot-Framework/test-suites/$test_tags',
+              outputPath: "Robot-Framework/test-suites/${result_dir}",
               outputFileName: '**/**/output.xml',
               otherFiles: '**/**/*.png',
               otherFiles: '**/**/*.txt',
