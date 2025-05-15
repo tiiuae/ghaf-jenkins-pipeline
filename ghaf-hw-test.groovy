@@ -275,7 +275,7 @@ pipeline {
       }
     }
     stage('Turn off via relay') {
-      when { expression { env.TESTSET.contains('_relayboot_')} }
+      when { expression { env.TESTSET.contains('_relayboot_') || env.TESTSET.contains('_turnoff_')} }
       steps {
         script {
           ghaf_robot_test('relay-turnoff')
