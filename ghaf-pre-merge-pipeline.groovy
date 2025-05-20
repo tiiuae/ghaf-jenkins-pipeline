@@ -125,7 +125,10 @@ pipeline {
     }
     stage('Checkout') {
       steps {
-        script { utils = load "utils.groovy" }
+        script {
+	  sh(script: 'rm -Rf sig')
+	  utils = load "utils.groovy"
+	}
         dir(WORKDIR) {
           // References:
           // https://www.jenkins.io/doc/pipeline/steps/params/scmgit/#scmgit
