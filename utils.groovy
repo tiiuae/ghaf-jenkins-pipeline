@@ -412,16 +412,6 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
             }
           }
         }
-
-        stage("Vulnxscan ${displayName}") {
-          catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-            sh """
-              mkdir -p ${scsdir}
-              vulnxscan ${it.drvPath} --out vulns.csv
-              csvcut vulns.csv --not-columns sortcol | csvlook -I >${scsdir}/vulns.txt
-            """
-          }
-        }
       }
 
       if (it.archive) {
