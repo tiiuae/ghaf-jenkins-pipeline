@@ -35,37 +35,28 @@ def parse_image_url_and_set_device() {
     "lenovo-x1-"          : [name: 'LenovoX1-1',   tag: 'lenovo-x1'],
     "dell-latitude-7330-" : [name: 'Dell7330',     tag: 'dell-7330']
   ]
-  // Parse out the TARGET from the IMG_URL
-  if (params.FLASH_AND_BOOT) {
-    if(!params.containsKey('IMG_URL')) {
-      error("Missing IMG_URL parameter")
-    }
-    def match
-    if ((match = params.IMG_URL =~ /commit_[0-9a-f]{5,40}\/([^\/]+)/)) {
-      env.TARGET = "${match.group(1)}"
-      match = null
 
-      def found = false
-      for (target in deviceMap.keySet()) {
-        if (params.IMG_URL.contains(target)) {
-          env.DEVICE_NAME = deviceMap[target].name
-          env.DEVICE_TAG  = deviceMap[target].tag
-          println("Using DEVICE_TAG: ${env.DEVICE_TAG}, DEVICE_NAME: ${env.DEVICE_NAME}")
-          found = true
-          break
-        }
+  // Try parse out the TARGET from the IMG_URL and assign DEVICE_NAME
+  def match
+  def found = false
+  def valid_url = false
+  if ((match = params.IMG_URL =~ /commit_[0-9a-f]{5,40}\/([^\/]+)/)) {
+    valid_url = true
+    env.TARGET = "${match.group(1)}"
+    match = null
+
+    for (target in deviceMap.keySet()) {
+      if (params.IMG_URL.contains(target)) {
+        env.DEVICE_NAME = deviceMap[target].name
+        env.DEVICE_TAG  = deviceMap[target].tag
+        println("Using DEVICE_TAG: ${env.DEVICE_TAG}, DEVICE_NAME: ${env.DEVICE_NAME}")
+        found = true
+        break
       }
-
-      if (!found) {
-        error("Could not determine device from IMG_URL: ${params.IMG_URL}")
-      }
-
-    } else {
-      error("Unexpected IMG_URL: ${params.IMG_URL}")
     }
   } else {
-    // check if DEVICE_TAG is allowed and assign DEVICE_NAME
-    def found = false
+    valid_url = false
+    // check if DEVICE_TAG is allowed
     for (entry in deviceMap) {
       if (params.DEVICE_TAG == entry.value.tag) {
         env.DEVICE_TAG  = entry.value.tag
@@ -75,9 +66,19 @@ def parse_image_url_and_set_device() {
         break
       }
     }
+  }
 
-    if (!found) {
-      error("FLASH_AND_BOOT is false and DEVICE_TAG '${params.DEVICE_TAG}' is not in the allowed list")
+  if (!found) {
+    error("Could not determine device. Given IMG_URL : ${params.IMG_URL}. Given DEVICE_TAG: ${params.DEVICE_TAG}")
+  }
+
+  if (params.FLASH_AND_BOOT) {
+    if(!params.containsKey('IMG_URL')) {
+      error("Missing IMG_URL parameter")
+    } else {
+      if (!valid_url) {
+        error("Unexpected IMG_URL: ${params.IMG_URL}")
+      }
     }
   }
 
@@ -341,7 +342,7 @@ pipeline {
             } else {
               result_dir = 'turnoff'
             }
-          } else if (params.BOOT) {
+          } else if (params.BOOT || params.FLASH_AND_BOOT) {
             if (params.USE_RELAY) {
               result_dir = 'relayboot'
             } else {
