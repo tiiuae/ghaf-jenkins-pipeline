@@ -21,7 +21,7 @@ def run_cmd(String cmd) {
 def get_test_conf_property(String file_path, String device, String property) {
   // Get the requested device property data from test_config.json file
   def device_data = readJSON file: file_path
-  property_data = "${device_data['addresses'][device][property]}"
+  def property_data = "${device_data['addresses'][device][property]}"
   println "Got device '${device}' property '${property}' value: '${property_data}'"
   return property_data
 }
@@ -142,11 +142,11 @@ pipeline {
               sleep 5
             done
           """
-          img_relpath = run_cmd("find ${TMP_IMG_DIR} -type f -print -quit | grep .")
+          def img_relpath = run_cmd("find ${TMP_IMG_DIR} -type f -print -quit | grep .")
           println "Downloaded image to workspace: ${img_relpath}"
           // Verify signature using the tooling from: https://github.com/tiiuae/ci-yubi
           sh "wget -nv -P ${TMP_SIG_DIR} ${params.IMG_URL}.sig"
-          sig_relpath = run_cmd("find ${TMP_SIG_DIR} -type f -print -quit | grep .")
+          def sig_relpath = run_cmd("find ${TMP_SIG_DIR} -type f -print -quit | grep .")
           println "Downloaded signature to workspace: ${sig_relpath}"
           sh "nix run github:tiiuae/ci-yubi/bdb2dbf#verify -- --path ${img_relpath} --sigfile ${sig_relpath} --cert INT-Ghaf-Devenv-Image"
           // Uncompress, keeping only the decompressed image file
@@ -180,14 +180,14 @@ pipeline {
             sh "exit 1"
           }
           // Determine mount commands
-          serial = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'usbhub_serial')
-          mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${serial}; sleep 10"
-          unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${serial}"
+          def serial = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'usbhub_serial')
+          def mount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 0 -s ${serial}; sleep 10"
+          def unmount_cmd = "/run/wrappers/bin/sudo AcronameHubCLI -u 1 -s ${serial}"
           env.DEVICE_TAG = params.DEVICE_CONFIG_NAME
           // Mount the target disk
           sh "${mount_cmd}"
           // Read the device name
-          dev = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'ext_drive_by-id')
+          def dev = get_test_conf_property(CONF_FILE_PATH, env.DEVICE_NAME, 'ext_drive_by-id')
           println "Using device '$dev'"
           // Wipe possible ZFS leftovers, more details here:
           // https://github.com/tiiuae/ghaf/blob/454b18bc/packages/installer/ghaf-installer.sh#L75
@@ -197,18 +197,18 @@ pipeline {
             SECTOR = 512
             MIB_TO_SECTORS = 20480
             // Disk size in 512-byte sectors
-            SECTORS = sh(script: "/run/wrappers/bin/sudo blockdev --getsz /dev/disk/by-id/${dev}", returnStdout: true).trim()
+            SECTORS = sh(script: "/run/wrappers/bin/sudo blockdev --getsz ${dev}", returnStdout: true).trim()
             // Unmount possible mounted filesystems
-            sh "sync; /run/wrappers/bin/sudo umount -q /dev/disk/by-id/${dev}* || true"
+            sh "sync; /run/wrappers/bin/sudo umount -q ${dev}* || true"
             // Wipe first 10MiB of disk
-            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=/dev/disk/by-id/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} conv=fsync status=none"
+            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} conv=fsync status=none"
             // Wipe last 10MiB of disk
-            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=/dev/disk/by-id/${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} seek=\$(( ${SECTORS} - ${MIB_TO_SECTORS} )) conv=fsync status=none"
+            sh "/run/wrappers/bin/sudo dd if=/dev/zero of=${dev} bs=${SECTOR} count=${MIB_TO_SECTORS} seek=\$(( ${SECTORS} - ${MIB_TO_SECTORS} )) conv=fsync status=none"
           }
           // Write the image
-          img_relpath = run_cmd("find ${TMP_IMG_DIR} -type f -print -quit | grep .")
+          def img_relpath = run_cmd("find ${TMP_IMG_DIR} -type f -print -quit | grep .")
           println "Using image '$img_relpath'"
-          sh "/run/wrappers/bin/sudo dd if=${img_relpath} of=/dev/disk/by-id/${dev} bs=1M status=progress conv=fsync"
+          sh "/run/wrappers/bin/sudo dd if=${img_relpath} of=${dev} bs=1M status=progress conv=fsync"
           // Unmount
           sh "${unmount_cmd}"
         }
