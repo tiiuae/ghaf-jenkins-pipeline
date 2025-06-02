@@ -213,7 +213,7 @@ pipeline {
               // utils.nix_eval_hydrajobs(hydrajobs_targets)
               //targets = targets + hydrajobs_targets
 
-              target_jobs = utils.create_parallel_stages(targets, testset='_relayboot_gui_bat_')
+              target_jobs = utils.create_parallel_stages(targets, testset='_relayboot_gui_regression_')
             }
           }
         }
