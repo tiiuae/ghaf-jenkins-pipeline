@@ -217,10 +217,24 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
   def imgdir = find_img_relpath(flakeref, 'archive')
   def remote_path = "artifacts/${env.ARTIFACTS_REMOTE_PATH}"
   def img_url = "${env.JENKINS_URL}/${remote_path}/${imgdir}"
+  def flakeref_trimmed = "${flakeref_trim(flakeref)}"
+
+  def provenance_url = null
+  def provenance_exists = sh(
+    script: """
+      cd scs || exit 0
+      find -L ${flakeref_trimmed} -name provenance.json -print -quit
+    """, returnStdout: true).trim()
+
+  if (!provenance_exists) {
+    println "Warning: no provenance found from scs/${flakeref_trimmed}'"
+  } else {
+    provenance_url = "${env.JENKINS_URL}/${remote_path}/${flakeref_trimmed}/scs/provenance.json"
+  }
+
   def commit_hash = "${env.TARGET_COMMIT}"
   def build_url = "${env.JENKINS_URL}/job/${env.JOB_NAME}/${env.BUILD_ID}"
   def build_href = "<a href=\"${build_url}\">${env.JOB_NAME}#${env.BUILD_ID}</a>"
-  def flakeref_trimmed = "${flakeref_trim(flakeref)}"
   def description = "Triggered by ${build_href}<br>(${flakeref_trimmed})"
   // Trigger a build in 'ghaf-hw-test' pipeline.
   // 'build' step is documented in https://plugins.jenkins.io/pipeline-build-step/
@@ -231,6 +245,7 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
       string(name: "LABEL", value: "$device_config"),
       string(name: "DEVICE_CONFIG_NAME", value: "$device_config"),
       string(name: "IMG_URL", value: "$img_url"),
+      string(name: "PROVENANCE_URL", value: "$provenance_url"),
       string(name: "DESC", value: "$description"),
       string(name: "TESTSET", value: "$testset"),
       string(name: "TARGET", value: "$flakeref_trimmed"),
