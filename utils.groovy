@@ -217,7 +217,6 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
   def imgdir = find_img_relpath(flakeref, 'archive')
   def remote_path = "artifacts/${env.ARTIFACTS_REMOTE_PATH}"
   def img_url = "${env.JENKINS_URL}/${remote_path}/${imgdir}"
-  def provenance_url = "${env.JENKINS_URL}/${remote_path}/${flakeref_trim(flakeref)}/scs/provenance.json"
   def commit_hash = "${env.TARGET_COMMIT}"
   def build_url = "${env.JENKINS_URL}/job/${env.JOB_NAME}/${env.BUILD_ID}"
   def build_href = "<a href=\"${build_url}\">${env.JOB_NAME}#${env.BUILD_ID}</a>"
@@ -232,7 +231,6 @@ def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_')
       string(name: "LABEL", value: "$device_config"),
       string(name: "DEVICE_CONFIG_NAME", value: "$device_config"),
       string(name: "IMG_URL", value: "$img_url"),
-      string(name: "PROVENANCE_URL", value: "$provenance_url"),
       string(name: "DESC", value: "$description"),
       string(name: "TESTSET", value: "$testset"),
       string(name: "TARGET", value: "$flakeref_trimmed"),
