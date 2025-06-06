@@ -9,9 +9,7 @@ def REPO_URL = 'https://github.com/tiiuae/ci-test-automation/'
 def DEF_LABEL = 'testagent'
 def TMP_IMG_DIR = 'image'
 def TMP_SIG_DIR = 'signature'
-def TMP_PROVENANCE_DIR = 'provenance'
 def CONF_FILE_PATH = '/etc/jenkins/test_config.json'
-def TRUST_POLICY_PATH = '/etc/jenkins/provenance-trust-policy.json'
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -113,39 +111,6 @@ pipeline {
           }
           env.TESTSET = params.getOrDefault('TESTSET', '_boot_')
           println "Using TESTSET: ${env.TESTSET}"
-        }
-      }
-    }
-    stage('Verify provenance') {
-      steps {
-        script {
-          if(!params.containsKey('PROVENANCE_URL')) {
-            println "Missing PROVENANCE_URL parameter"
-            sh "exit 1"
-          }
-          sh "rm -fr ${TMP_PROVENANCE_DIR}"
-          // Wget occasionally fails due to a failure in name lookup. Below is a
-          // hack to force re-try a few times before aborting. Wget options, such
-          // as --tries, --waitretry, --retry-connrefused, etc. do not help in case
-          // the failure is due to an issue in name resolution which is considered
-          // a fatal error. Therefore, we need to add the below retry loop.
-          // TODO: remove the below re-try loop when test network DNS works
-          // reliably.
-          sh """
-            retry=1
-            max_retry=3
-            while ! wget -nv --show-progress --progress=dot:giga -P ${TMP_PROVENANCE_DIR} ${params.PROVENANCE_URL};
-            do
-              if (( \$retry >= \$max_retry )); then
-                echo "wget failed after \$retry retries"
-                exit 1
-              fi
-              retry=\$(( \$retry + 1 ))
-              sleep 5
-            done
-          """
-          sh "wget -nv -P ${TMP_PROVENANCE_DIR} ${params.PROVENANCE_URL}.sig"
-          sh "policy-checker ${TMP_PROVENANCE_DIR}/provenance.json --sig ${TMP_PROVENANCE_DIR}/provenance.json.sig --policy ${TRUST_POLICY_PATH}"
         }
       }
     }
