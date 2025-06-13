@@ -58,6 +58,12 @@ def targets = [
     scs: true,
     hwtest_device: null,
   ],
+  [ target: "lenovo-x1-gen11-hardening-debug",
+    system: "x86_64-linux",
+    archive: true,
+    scs: false,
+    hwtest_device: null,
+  ],
 
   // Dell Latitude rugged laptops
   [ target: "dell-latitude-7230-debug",
