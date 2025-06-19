@@ -33,7 +33,7 @@ def ghaf_robot_test(String testname='boot') {
   if (!env.DEVICE_NAME) {
     sh "echo 'DEVICE_NAME not set'; exit 1"
   }
-  if (testname == 'turnoff' || testname == 'relay-turnoff') {
+  if (testname == 'turnoff' || testname == 'relay-turnoff' || testname == 'installer') {
     env.INCLUDE_TEST_TAGS = "${testname}"
   } else {
     env.INCLUDE_TEST_TAGS = "${testname}AND${env.DEVICE_TAG}"
@@ -211,6 +211,12 @@ pipeline {
           sh "/run/wrappers/bin/sudo dd if=${img_relpath} of=${dev} bs=1M status=progress conv=fsync"
           // Unmount
           sh "${unmount_cmd}"
+
+          if(params.TARGET == "lenovo-x1-carbon-gen11-debug-installer") {
+            ghaf_robot_test('installer')  //turn on, connect, run installer, wait, turn off
+            sh "${mount_cmd}"                 //disconnect SSD
+          }
+
         }
       }
     }
@@ -271,6 +277,15 @@ pipeline {
       steps {
         script {
           ghaf_robot_test('performance')
+        }
+      }
+    }
+    stage('Wipe system') {
+      when { expression { params.TARGET == "lenovo-x1-carbon-gen11-debug-installer"} }
+      steps {
+        script {
+          //WIPE INTERTNAL DISK
+          sh "/run/wrappers/bin/sudo dd if=/dev/zero of=/dev/nvme0n1 count=100 bs=32M"
         }
       }
     }
