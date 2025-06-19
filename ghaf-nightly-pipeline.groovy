@@ -44,7 +44,7 @@ def targets = [
     system: "x86_64-linux",
     archive: true,
     scs: true,
-    hwtest_device: null,
+    hwtest_device: "lenovo-x1",
   ],
   [ target: "lenovo-x1-carbon-gen11-release",
     system: "x86_64-linux",
