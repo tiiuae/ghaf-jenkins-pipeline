@@ -90,6 +90,7 @@ def nix_build(String flakeref, String subdir=null) {
     img_relpath = subdir ? find_img_relpath(flakeref, subdir, abort_on_error='false') : ""
     if (img_relpath) {
       target_path = "${subdir}/${img_relpath}"
+      sign_efi(target_path)
       sig_path = "sig/${img_relpath}.sig"
       sign_file(target_path, sig_path, "INT-Ghaf-Devenv-Image")
       // Archive signature file alongside the target image
@@ -193,6 +194,18 @@ def sign_file(String path, String sigfile, String cert="INT-Ghaf-Devenv-Common")
         mkdir -p \$(dirname '${sigfile}') || true
         sign --path=${path} --cert=${cert} --sigfile=${sigfile}
     """, returnStdout: true).trim()
+  } catch (Exception e) {
+    println "Warning: signing failed: sigfile will not be generated for: ${path}"
+  }
+}
+
+def sign_efi(String path) {
+  println "sign_efi: ${path}"
+  try {
+    sh(
+      script: """
+        nix run github:tiiuae/ci-yubi/ce3097488df31331bf5375a72f06510a814d1016#sigme -- ${path}
+      """, returnStdout: true).trim()
   } catch (Exception e) {
     println "Warning: signing failed: sigfile will not be generated for: ${path}"
   }
