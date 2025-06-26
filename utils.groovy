@@ -432,7 +432,7 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
           script {
             archive_artifacts("archive", targetAttr)
             archive_artifacts("sig", targetAttr)
-	    archive_artifacts("disk.iso", targetAttr)
+	    archive_artifacts("uefi-sig", targetAttr)
             if (it.scs) {
               archive_artifacts("scs", targetAttr)
             }
