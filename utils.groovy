@@ -90,7 +90,7 @@ def nix_build(String flakeref, String subdir=null) {
     img_relpath = subdir ? find_img_relpath(flakeref, subdir, abort_on_error='false') : ""
     if (img_relpath) {
       target_path = "${subdir}/${img_relpath}"
-      sign_efi(target_path)
+      sign_efi(target_path, "uefi-sig")
       sig_path = "sig/${img_relpath}.sig"
       sign_file(target_path, sig_path, "INT-Ghaf-Devenv-Image")
       // Archive signature file alongside the target image
@@ -199,11 +199,11 @@ def sign_file(String path, String sigfile, String cert="INT-Ghaf-Devenv-Common")
   }
 }
 
-def sign_efi(String path) {
+def sign_efi(String path, String subdir) {
   println "sign_efi: ${path}"
   try {
     sh """
-      nix run --refresh github:tiiuae/ci-yubi/feature/secureboot-refactor#signme -- ${path}
+      nix run --refresh github:tiiuae/ci-yubi/feature/secureboot-refactor#signme -- ${path} ${subdir}
     """
   } catch (Exception e) {
     println "Warning: signing failed: sigfile will not be generated for: ${path}"
@@ -358,7 +358,7 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
           // only attempt signing if there is something to sign
           if (it.archive) {
             def img_relpath = find_img_relpath(targetAttr, "archive")
-	    sign_efi("archive/${img_relpath}")
+	    sign_efi("archive/${img_relpath}", "uefi-sig")
             sign_file("archive/${img_relpath}", "sig/${img_relpath}.sig", "INT-Ghaf-Devenv-Image")
           };
 
