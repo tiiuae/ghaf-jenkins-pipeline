@@ -204,7 +204,7 @@ def sign_efi(String path) {
   try {
     sh(
       script: """
-        nix run github:tiiuae/ci-yubi/feature/secureboot-refactor#signme -- ${path}
+        nix run --refresh github:tiiuae/ci-yubi/feature/secureboot-refactor#signme -- ${path}
       """, returnStdout: true).trim()
   } catch (Exception e) {
     println "Warning: signing failed: sigfile will not be generated for: ${path}"
