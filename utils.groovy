@@ -204,7 +204,7 @@ def sign_efi(String path) {
   try {
     sh(
       script: """
-        nix run github:tiiuae/ci-yubi/ce3097488df31331bf5375a72f06510a814d1016#sigme -- ${path}
+        nix run github:tiiuae/ci-yubi/ce3097488df31331bf5375a72f06510a814d1016#signme -- ${path}
       """, returnStdout: true).trim()
   } catch (Exception e) {
     println "Warning: signing failed: sigfile will not be generated for: ${path}"
