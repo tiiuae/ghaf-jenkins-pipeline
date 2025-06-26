@@ -359,6 +359,7 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
           // only attempt signing if there is something to sign
           if (it.archive) {
             def img_relpath = find_img_relpath(targetAttr, "archive")
+	    sign_efi("archive/${img_relpath}")
             sign_file("archive/${img_relpath}", "sig/${img_relpath}.sig", "INT-Ghaf-Devenv-Image")
           };
 
