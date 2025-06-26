@@ -202,10 +202,9 @@ def sign_file(String path, String sigfile, String cert="INT-Ghaf-Devenv-Common")
 def sign_efi(String path) {
   println "sign_efi: ${path}"
   try {
-    sh(
-      script: """
-        nix run --refresh github:tiiuae/ci-yubi/feature/secureboot-refactor#signme -- ${path}
-      """, returnStdout: true).trim()
+    sh """
+      nix run --refresh github:tiiuae/ci-yubi/feature/secureboot-refactor#signme -- ${path}
+    """
   } catch (Exception e) {
     println "Warning: signing failed: sigfile will not be generated for: ${path}"
   }
