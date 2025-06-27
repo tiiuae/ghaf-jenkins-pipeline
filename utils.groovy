@@ -90,7 +90,6 @@ def nix_build(String flakeref, String subdir=null) {
     img_relpath = subdir ? find_img_relpath(flakeref, subdir, abort_on_error='false') : ""
     if (img_relpath) {
       target_path = "${subdir}/${img_relpath}"
-      sign_efi(target_path, "uefi-sig")
       sig_path = "sig/${img_relpath}.sig"
       sign_file(target_path, sig_path, "INT-Ghaf-Devenv-Image")
       // Archive signature file alongside the target image
@@ -434,7 +433,9 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
           script {
             archive_artifacts("archive", targetAttr)
             archive_artifacts("sig", targetAttr)
-	    archive_artifacts("uefi-sig")
+	    if (it.uefi) {
+	      archive_artifacts("uefi-sig")
+	    }
             if (it.scs) {
               archive_artifacts("scs", targetAttr)
             }
