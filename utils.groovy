@@ -434,6 +434,7 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
             archive_artifacts("archive", targetAttr)
             archive_artifacts("sig", targetAttr)
 	    if (it.uefi) {
+	      println "Archiving UEFI signed image..."
 	      archive_artifacts("uefi-sig")
 	    }
             if (it.scs) {
