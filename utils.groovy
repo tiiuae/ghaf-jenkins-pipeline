@@ -198,6 +198,17 @@ def sign_file(String path, String sigfile, String cert="INT-Ghaf-Devenv-Common")
   }
 }
 
+def sign_efi(String path, String subdir) {
+  println "sign_efi: ${path}"
+  try {
+    sh """
+      nix run --refresh github:tiiuae/ci-yubi/feature/secureboot-refactor#signme -- ${path} ${subdir}
+    """
+  } catch (Exception e) {
+    println "Warning: signing failed: sigfile will not be generated for: ${path}"
+  }
+}
+
 def ghaf_hw_test(String flakeref, String device_config, String testset='_boot_') {
   testagent_nodes = nodesByLabel(label: "$device_config", offline: false)
   if (!testagent_nodes) {
@@ -361,7 +372,11 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
           // only attempt signing if there is something to sign
           if (it.archive) {
             def img_relpath = find_img_relpath(targetAttr, "archive")
-            sign_file("archive/${img_relpath}", "sig/${img_relpath}.sig", "INT-Ghaf-Devenv-Image")
+	    if (it.uefi) {
+	      println "UEFI Signing..."
+	      sign_efi("archive/${img_relpath}", "uefi-sig")
+	    }
+	    sign_file("archive/${img_relpath}", "sig/${img_relpath}.sig", "INT-Ghaf-Devenv-Image")
           };
 
         } catch (InterruptedException e) {
@@ -375,7 +390,6 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
           throw e
         }
       }
-
       if (it.scs) {
         stage("Provenance ${displayName}") {
           def externalParams = """
@@ -434,6 +448,10 @@ def create_parallel_stages(List<Map> targets, String testset='_boot_bat_perf_', 
           script {
             archive_artifacts("archive", targetAttr)
             archive_artifacts("sig", targetAttr)
+	    if (it.uefi) {
+	      println "Archiving UEFI signed image..."
+	      archive_artifacts("uefi-sig")
+	    }
             if (it.scs) {
               archive_artifacts("scs", targetAttr)
             }
