@@ -125,7 +125,7 @@ pipeline {
           lock('evaluator') {
             script {
               utils.nix_eval_jobs(targets)
-              target_jobs = utils.create_parallel_stages(targets, testset="null", failedTargets=failedTargets, failedHWTests=failedHWTests)
+              target_jobs = utils.create_parallel_stages(targets, testset=null, failedTargets=failedTargets, failedHWTests=failedHWTests)
             }
           }
         }
