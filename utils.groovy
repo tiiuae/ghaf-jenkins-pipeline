@@ -68,8 +68,6 @@ def purge_artifacts_by_age(String remote_path, String age) {
   }
   // remove artifact files by given age
   run_rclone("delete :webdav:/${remote_path} --min-age ${age} --include '**/*'")
-  // remove empty directories
-  run_rclone("rmdirs :webdav:/stash --leave-root")
 
 }
 
