@@ -136,6 +136,12 @@ def targets = [
     scs: true,
     hwtest_device: null,
   ],
+  [ target: "system76-darp11-b-debug",
+    system: "x86_64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: "null",
+  ],
 ]
 
 // bpmp builds are disabled for now!
