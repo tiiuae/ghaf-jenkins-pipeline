@@ -28,8 +28,8 @@ def target_jobs = [:]
 def targets = [
   [ target: "doc",
     system: "x86_64-linux",
-    archive: false,
-    scs: false,
+    archive: true,
+    scs: true,
     hwtest_device: null,
   ],
   [ target: "lenovo-x1-carbon-gen11-debug",

@@ -174,17 +174,17 @@ pipeline {
               sleep 5
             done
           """
-          def verify = sh(
-          script: """
-            nix run github:tiiuae/ci-yubi/produaen/#verify -- --help | grep Usage | /run/current-system/sw/bin/awk '{print \$2}'
-          """, returnStdout:true).trim()
+//          def verify = sh(
+//          script: """
+//            nix run github:tiiuae/ci-yubi/produaen/#verify -- --help | grep Usage | /run/current-system/sw/bin/awk '{print \$2}'
+//          """, returnStdout:true).trim()
           def img_relpath = run_cmd("find ${TMP_IMG_DIR} -type f -print -quit | grep .")
           println "Downloaded image to workspace: ${img_relpath}"
           // Verify signature using the tooling from: https://github.com/tiiuae/ci-yubi/produaen
           sh "wget -nv -P ${TMP_SIG_DIR} ${params.IMG_URL}.sig"
           def sig_relpath = run_cmd("find ${TMP_SIG_DIR} -type f -print -quit | grep .")
           println "Downloaded signature to workspace: ${sig_relpath}"
-          sh "${verify} --path=${img_relpath} --sigfile=${sig_relpath} --cert=INT-Ghaf-UAE-Prodenv-Image"
+          sh "nix run github:tiiuae/ci-yubi/produaen/#verify -- --path ${img_relpath} --sigfile ${sig_relpath} --cert INT-Ghaf-UAE-Prodenv-Image"
           // Uncompress, keeping only the decompressed image file
           if(img_relpath.endsWith("zst")) {
             sh "zstd -dfv ${img_relpath} && rm ${img_relpath}"
