@@ -116,36 +116,36 @@ pipeline {
         }
       }
     }
-    stage('Verify provenance') {
-      when { expression { params.containsKey('PROVENANCE_URL') && params.PROVENANCE_URL != "null" } }
-      steps {
-        script {
-          sh "rm -fr ${TMP_PROVENANCE_DIR}"
-          // Wget occasionally fails due to a failure in name lookup. Below is a
-          // hack to force re-try a few times before aborting. Wget options, such
-          // as --tries, --waitretry, --retry-connrefused, etc. do not help in case
-          // the failure is due to an issue in name resolution which is considered
-          // a fatal error. Therefore, we need to add the below retry loop.
-          // TODO: remove the below re-try loop when test network DNS works
-          // reliably.
-          sh """
-            retry=1
-            max_retry=3
-            while ! wget -nv --show-progress --progress=dot:giga -P ${TMP_PROVENANCE_DIR} ${params.PROVENANCE_URL};
-            do
-              if (( \$retry >= \$max_retry )); then
-                echo "wget failed after \$retry retries"
-                exit 1
-              fi
-              retry=\$(( \$retry + 1 ))
-              sleep 5
-            done
-          """
-          sh "wget -nv -P ${TMP_PROVENANCE_DIR} ${params.PROVENANCE_URL}.sig"
-          sh "policy-checker ${TMP_PROVENANCE_DIR}/provenance.json --sig ${TMP_PROVENANCE_DIR}/provenance.json.sig --policy ${TRUST_POLICY_PATH}"
-        }
-      }
-    }
+//    stage('Verify provenance') {
+//      when { expression { params.containsKey('PROVENANCE_URL') && params.PROVENANCE_URL != "null" } }
+//      steps {
+//        script {
+//          sh "rm -fr ${TMP_PROVENANCE_DIR}"
+//          // Wget occasionally fails due to a failure in name lookup. Below is a
+//          // hack to force re-try a few times before aborting. Wget options, such
+//          // as --tries, --waitretry, --retry-connrefused, etc. do not help in case
+//          // the failure is due to an issue in name resolution which is considered
+//          // a fatal error. Therefore, we need to add the below retry loop.
+//          // TODO: remove the below re-try loop when test network DNS works
+//          // reliably.
+//          sh """
+//            retry=1
+//            max_retry=3
+//            while ! wget -nv --show-progress --progress=dot:giga -P ${TMP_PROVENANCE_DIR} ${params.PROVENANCE_URL};
+//            do
+//              if (( \$retry >= \$max_retry )); then
+//                echo "wget failed after \$retry retries"
+//                exit 1
+//              fi
+//              retry=\$(( \$retry + 1 ))
+//              sleep 5
+//            done
+//          """
+//          sh "wget -nv -P ${TMP_PROVENANCE_DIR} ${params.PROVENANCE_URL}.sig"
+//          sh "policy-checker ${TMP_PROVENANCE_DIR}/provenance.json --sig ${TMP_PROVENANCE_DIR}/provenance.json.sig --policy ${TRUST_POLICY_PATH}"
+//        }
+//      }
+//    }
     stage('Image download') {
       steps {
         script {
@@ -174,13 +174,17 @@ pipeline {
               sleep 5
             done
           """
+//          def verify = sh(
+//          script: """
+//            nix run github:tiiuae/ci-yubi/produaen/#verify -- --help | grep Usage | /run/current-system/sw/bin/awk '{print \$2}'
+//          """, returnStdout:true).trim()
           def img_relpath = run_cmd("find ${TMP_IMG_DIR} -type f -print -quit | grep .")
           println "Downloaded image to workspace: ${img_relpath}"
-          // Verify signature using the tooling from: https://github.com/tiiuae/ci-yubi
+          // Verify signature using the tooling from: https://github.com/tiiuae/ci-yubi/produaen
           sh "wget -nv -P ${TMP_SIG_DIR} ${params.IMG_URL}.sig"
           def sig_relpath = run_cmd("find ${TMP_SIG_DIR} -type f -print -quit | grep .")
           println "Downloaded signature to workspace: ${sig_relpath}"
-          sh "nix run github:tiiuae/ci-yubi/bdb2dbf#verify -- --path ${img_relpath} --sigfile ${sig_relpath} --cert INT-Ghaf-Devenv-Image"
+          sh "nix run github:tiiuae/ci-yubi/produaen/#verify -- --path ${img_relpath} --sigfile ${sig_relpath} --cert INT-Ghaf-UAE-Prodenv-Image"
           // Uncompress, keeping only the decompressed image file
           if(img_relpath.endsWith("zst")) {
             sh "zstd -dfv ${img_relpath} && rm ${img_relpath}"

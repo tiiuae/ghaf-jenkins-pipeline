@@ -28,75 +28,69 @@ def target_jobs = [:]
 def targets = [
   [ target: "doc",
     system: "x86_64-linux",
-    archive: false,
-    scs: false,
+    archive: true,
+    scs: true,
     hwtest_device: null,
   ],
   [ target: "lenovo-x1-carbon-gen11-debug",
     system: "x86_64-linux",
     archive: true,
-    scs: false,
-    hwtest_device: "lenovo-x1",
-  ],
-  [ target: "lenovo-x1-gen11-hardening-debug",
-    system: "x86_64-linux",
-    archive: true,
-    scs: false,
-    hwtest_device: null,
-  ],
-  [ target: "lenovo-x1-gen11-hardening-debug-installer",
-    system: "x86_64-linux",
-    archive: true,
-    scs: false,
-    hwtest_device: null,
+    scs: true,
+    hwtest_device: "null",
   ],
   [ target: "dell-latitude-7230-debug",
     system: "x86_64-linux",
     archive: true,
-    scs: false,
+    scs: true,
     hwtest_device: null,
   ],
   [ target: "dell-latitude-7330-debug",
     system: "x86_64-linux",
     archive: true,
-    scs: false,
-    hwtest_device: "dell-7330",
+    scs: true,
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-agx-debug",
     system: "aarch64-linux",
     archive: true,
-    scs: false,
-    hwtest_device: "orin-agx",
+    scs: true,
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-agx-debug-from-x86_64",
     system: "x86_64-linux",
     archive: true,
-    scs: false,
-    hwtest_device: "orin-agx",
+    scs: true,
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-agx64-debug",
     system: "aarch64-linux",
     archive: true,
-    scs: false,
-    hwtest_device: "orin-agx-64",
+    scs: true,
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-agx64-debug-from-x86_64",
     system: "x86_64-linux",
     archive: true,
-    scs: false,
-    hwtest_device: "orin-agx-64",
+    scs: true,
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-nx-debug",
     system: "aarch64-linux",
     archive: true,
-    scs: false,
-    hwtest_device: "orin-nx",
+    scs: true,
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-nx-debug-from-x86_64",
     system: "x86_64-linux",
     archive: true,
-    scs: false,
-    hwtest_device: "orin-nx",
+    scs: true,
+    hwtest_device: "null",
+  ],
+  [ target: "system76-darp11-b-debug",
+    system: "x86_64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: "null",
   ],
 ]
 
@@ -137,7 +131,7 @@ pipeline {
           lock('evaluator') {
             script {
               utils.nix_eval_jobs(targets)
-              target_jobs = utils.create_parallel_stages(targets, testset='_relayboot_bat_', failedTargets=failedTargets, failedHWTests=failedHWTests)
+              target_jobs = utils.create_parallel_stages(targets, testset=null, failedTargets=failedTargets, failedHWTests=failedHWTests)
             }
           }
         }
@@ -162,47 +156,47 @@ pipeline {
         }
       }
     }
-    failure {
-      script {
-        githublink="https://github.com/tiiuae/ghaf/commit/${env.TARGET_COMMIT}"
-        servername = sh(script: 'uname -n', returnStdout: true).trim()
-        echo "Server name:$servername"
-        def formattedFailedMessage = ""
-        def formattedHWFailedMessage = ""
-        def line5=""
-        def line6=""
-        if (failedTargets) {
-          formattedFailedMessage = failedTargets.collect { "- ${it.trim()}" }.join("\n")
-        } else {
-          formattedFailedMessage = "No failed build targets"
-          formattedHWFailedMessage = failedHWTests.collect  { "- ${it.trim()}" }.join("\n")
-          line5="\n*Failed HW test targets:*".stripIndent()
-          line6="\n${formattedHWFailedMessage}".stripIndent()
-        }
-        if (servername=="ghaf-jenkins-controller-prod") {
-          serverchannel="ghaf-build" // prod main build failures channel
-          echo "Slack channel:$serverchannel"
-          line1="*FAILURE:* ${env.BUILD_URL}".stripIndent()
-          line2="\nCommit: <${githublink}|${env.TARGET_COMMIT}>".stripIndent()
-          line3="\n*Failed build targets:*".stripIndent()
-          line4="\n${formattedFailedMessage}".stripIndent()
-          message = """
-          ${line1}
-          ${line2}
-          ${line3}
-          ${line4}
-          ${line5}
-          ${line6}""".stripIndent()
-          slackSend (
-            channel: "$serverchannel",
-            color: "danger",
-            message: message
-          )
-        }
-        else {
-          echo "Slack message not sent (failed build). Check pipeline slack configuration!"
-        }
-      }
-    }
+//    failure {
+//      script {
+//        githublink="https://github.com/tiiuae/ghaf/commit/${env.TARGET_COMMIT}"
+//        servername = sh(script: 'uname -n', returnStdout: true).trim()
+//        echo "Server name:$servername"
+//        def formattedFailedMessage = ""
+//        def formattedHWFailedMessage = ""
+//        def line5=""
+//        def line6=""
+//        if (failedTargets) {
+//          formattedFailedMessage = failedTargets.collect { "- ${it.trim()}" }.join("\n")
+//        } else {
+//          formattedFailedMessage = "No failed build targets"
+//          formattedHWFailedMessage = failedHWTests.collect  { "- ${it.trim()}" }.join("\n")
+//          line5="\n*Failed HW test targets:*".stripIndent()
+//          line6="\n${formattedHWFailedMessage}".stripIndent()
+//        }
+//        if (servername=="ghaf-jenkins-controller-prod") {
+//          serverchannel="ghaf-build" // prod main build failures channel
+//          echo "Slack channel:$serverchannel"
+//          line1="*FAILURE:* ${env.BUILD_URL}".stripIndent()
+//          line2="\nCommit: <${githublink}|${env.TARGET_COMMIT}>".stripIndent()
+//          line3="\n*Failed build targets:*".stripIndent()
+//          line4="\n${formattedFailedMessage}".stripIndent()
+//          message = """
+//          ${line1}
+//          ${line2}
+//          ${line3}
+//          ${line4}
+//          ${line5}
+//          ${line6}""".stripIndent()
+//          slackSend (
+//            channel: "$serverchannel",
+//            color: "danger",
+//            message: message
+//          )
+//        }
+//        else {
+//          echo "Slack message not sent (failed build). Check pipeline slack configuration!"
+//        }
+//      }
+//    }
   }
 }

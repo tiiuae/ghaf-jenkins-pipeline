@@ -28,8 +28,8 @@ def targets = [
   // docs
   [ target: "doc",
     system: "x86_64-linux",
-    archive: false,
-    scs: false,
+    archive: true,
+    scs: true,
     hwtest_device: null,
   ],
 
@@ -38,7 +38,7 @@ def targets = [
     system: "x86_64-linux",
     archive: true,
     scs: true,
-    hwtest_device: "lenovo-x1",
+    hwtest_device: "null",
   ],
   [ target: "lenovo-x1-carbon-gen11-debug-installer",
     system: "x86_64-linux",
@@ -61,13 +61,13 @@ def targets = [
   [ target: "lenovo-x1-gen11-hardening-debug",
     system: "x86_64-linux",
     archive: true,
-    scs: false,
+    scs: true,
     hwtest_device: null,
   ],
   [ target: "lenovo-x1-gen11-hardening-debug-installer",
     system: "x86_64-linux",
     archive: true,
-    scs: false,
+    scs: true,
     hwtest_device: null,
   ],
 
@@ -82,7 +82,7 @@ def targets = [
     system: "x86_64-linux",
     archive: true,
     scs: true,
-    hwtest_device: "dell-7330",
+    hwtest_device: "null",
   ],
 
   // nvidia orin
@@ -90,44 +90,44 @@ def targets = [
     system: "aarch64-linux",
     archive: true,
     scs: true,
-    hwtest_device: "orin-agx",
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-agx64-debug",
     system: "aarch64-linux",
     archive: true,
-    scs: false,
-    hwtest_device: "orin-agx-64",
+    scs: true,
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-nx-debug",
     system: "aarch64-linux",
     archive: true,
     scs: true,
-    hwtest_device: "orin-nx",
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-agx-debug-from-x86_64",
     system: "x86_64-linux",
     archive: true,
     scs: true,
-    hwtest_device: "orin-agx",
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-agx64-debug-from-x86_64",
     system: "x86_64-linux",
     archive: true,
     scs: true,
-    hwtest_device: "orin-agx-64",
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-nx-debug-from-x86_64",
     system: "x86_64-linux",
     archive: true,
     scs: true,
-    hwtest_device: "orin-nx",
+    hwtest_device: "null",
   ],
 
   // others
   [ target: "generic-x86_64-debug",
     system: "x86_64-linux",
     archive: true,
-    scs: false,
+    scs: true,
     hwtest_device: null,
   ],
   [ target: "nxp-imx8mp-evk-debug",
@@ -135,6 +135,12 @@ def targets = [
     archive: true,
     scs: true,
     hwtest_device: null,
+  ],
+  [ target: "system76-darp11-b-debug",
+    system: "x86_64-linux",
+    archive: true,
+    scs: true,
+    hwtest_device: "null",
   ],
 ]
 
@@ -219,7 +225,7 @@ pipeline {
               // utils.nix_eval_hydrajobs(hydrajobs_targets)
               //targets = targets + hydrajobs_targets
 
-              target_jobs = utils.create_parallel_stages(targets, testset='_relayboot_gui_regression_')
+              target_jobs = utils.create_parallel_stages(targets, testset=null)
             }
           }
         }

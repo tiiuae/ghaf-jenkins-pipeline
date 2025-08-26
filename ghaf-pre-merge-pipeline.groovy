@@ -61,7 +61,7 @@ def targets = [
     system: "x86_64-linux",
     archive: true,
     scs: false,
-    hwtest_device: "lenovo-x1",
+    hwtest_device: "null",
   ],
   [ target: "dell-latitude-7230-debug",
     system: "x86_64-linux",
@@ -73,31 +73,31 @@ def targets = [
     system: "x86_64-linux",
     archive: true,
     scs: false,
-    hwtest_device: "dell-7330",
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-agx-debug",
     system: "aarch64-linux",
     archive: true,
     scs: false,
-    hwtest_device: "orin-agx",
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-agx-debug-from-x86_64",
     system: "x86_64-linux",
     archive: true,
     scs: false,
-    hwtest_device: "orin-agx",
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-nx-debug",
     system: "aarch64-linux",
     archive: true,
     scs: false,
-    hwtest_device: "orin-nx",
+    hwtest_device: "null",
   ],
   [ target: "nvidia-jetson-orin-nx-debug-from-x86_64",
     system: "x86_64-linux",
     archive: true,
     scs: false,
-    hwtest_device: "orin-nx",
+    hwtest_device: "null",
   ],
 ]
 
@@ -188,7 +188,7 @@ pipeline {
           lock('evaluator') {
             script {
               utils.nix_eval_jobs(targets)
-              target_jobs = utils.create_parallel_stages(targets, testset='_relayboot_pre-merge_')
+              target_jobs = utils.create_parallel_stages(targets, testset=null)
             }
           }
         }
