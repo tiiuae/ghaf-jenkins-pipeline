@@ -28,7 +28,7 @@ def targets = [
   // docs
   [ target: "doc",
     system: "x86_64-linux",
-    archive: true,
+    archive: false,
     scs: true,
     hwtest_device: null,
   ],
@@ -67,7 +67,7 @@ def targets = [
   [ target: "lenovo-x1-gen11-hardening-debug-installer",
     system: "x86_64-linux",
     archive: true,
-    scs: true,
+    scs: false,
     hwtest_device: null,
   ],
 
@@ -127,7 +127,7 @@ def targets = [
   [ target: "generic-x86_64-debug",
     system: "x86_64-linux",
     archive: true,
-    scs: true,
+    scs: false,
     hwtest_device: null,
   ],
   [ target: "nxp-imx8mp-evk-debug",
