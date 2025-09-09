@@ -49,6 +49,14 @@ def targets = [
     hwtest_device: null,
   ],
 
+  // DarterPRO System76
+  [ system: "x86_64-linux",
+    target: "system76-darp11-b-debug",
+    archive: true,
+    scs: true,
+    hwtest_device: "darter-pro",
+  ],
+
   // nvidia orin
   [ system: "aarch64-linux",
     target: "nvidia-jetson-orin-agx-debug",
