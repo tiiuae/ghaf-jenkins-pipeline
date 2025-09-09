@@ -207,6 +207,8 @@ pipeline {
             env.DEVICE_NAME = 'LenovoX1-1'
           } else if(params.DEVICE_CONFIG_NAME == "dell-7330") {
             env.DEVICE_NAME = 'Dell7330'
+          } else if(params.DEVICE_CONFIG_NAME == "darter-pro") {
+            env.DEVICE_NAME = 'DarterPRO'
           } else {
             println "Error: unsupported device config '${params.DEVICE_CONFIG_NAME}'"
             sh "exit 1"
@@ -224,7 +226,7 @@ pipeline {
           // Wipe possible ZFS leftovers, more details here:
           // https://github.com/tiiuae/ghaf/blob/454b18bc/packages/installer/ghaf-installer.sh#L75
           // TODO: use ghaf flashing scripts or installers?
-          if(params.DEVICE_CONFIG_NAME == "lenovo-x1" || params.DEVICE_CONFIG_NAME == "dell-7330") {
+          if(params.DEVICE_CONFIG_NAME == "lenovo-x1" || params.DEVICE_CONFIG_NAME == "dell-7330" || params.DEVICE_CONFIG_NAME == "darter-pro") {
             echo "Wiping filesystem..."
             SECTOR = 512
             MIB_TO_SECTORS = 20480
