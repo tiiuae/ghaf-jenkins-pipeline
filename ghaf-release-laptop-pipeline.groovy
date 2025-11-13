@@ -56,6 +56,12 @@ def targets = [
     scs: true,
     hwtest_device: "darter-pro",
   ],
+    [ system: "x86_64-linux",
+    target: "system76-darp11-b-debug-installer",
+    archive: true,
+    scs: true,
+    hwtest_device: null,
+  ],
 ]
 
 ////////////////////////////////////////////////////////////////////////////////
